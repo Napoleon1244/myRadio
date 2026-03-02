@@ -1,2 +1,5 @@
 # myRadio
-R/a/dio and Listen.moe
+#### R/a/dio dan Listen.moe
+
+> hanya sebuah PWA Direct Stream Radio dari R/a/dio dan Listen.moe
+> 
