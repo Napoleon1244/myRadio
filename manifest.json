@@ -1,0 +1,25 @@
+{
+  "name": "myRadio",
+  "short_name": "myRadio",
+  "description": "R/a/dio dan Listen.moe",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#6b4fa0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://api.iconify.design/mdi:radio.svg?color=%236b4fa0&width=192&height=192",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.iconify.design/mdi:radio.svg?color=%236b4fa0&width=512&height=512",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment"]
+}
