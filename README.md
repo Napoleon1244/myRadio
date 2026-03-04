@@ -1,7 +1,11 @@
-# myRadio
-#### R/a/dio dan Listen.moe
+# 📻 myRadio
 
-- hanya sebuah PWA Direct Stream Radio untuk R/a/dio dan Listen.moe
-- dibuat untuk penggunaan pribadi
+Web radio player untuk [r/a/dio](https://r-a-d.io/) dan [listen.moe](https://listen.moe/) — PWA yang bisa di-install ke home screen Android.
 
-https://napoleon1244.github.io/myRadio/
+**→ [napoleon1244.github.io/myRadio](https://napoleon1244.github.io/myRadio/)**
+
+---
+
+Dual player side by side, now playing realtime, dark/light mode, sleep timer dengan volume fade otomatis, dan auto-reconnect saat jaringan putus.
+
+Dibuat untuk personal use.
