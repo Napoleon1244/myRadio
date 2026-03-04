@@ -6,6 +6,6 @@ Web radio player untuk [r/a/dio](https://r-a-d.io/) dan [listen.moe](https://lis
 
 ---
 
-Dual player side by side, now playing realtime, dark/light mode, sleep timer dengan volume fade otomatis, dan auto-reconnect saat jaringan putus.
+Dual player side by side, now playing realtime, dark/light mode, sleep timer dengan volume fade otomatis.
 
 Dibuat untuk personal use.
