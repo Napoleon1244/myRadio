@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="id" id="htmlRoot" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#6b4fa0" id="themeColorMeta">
+  <!-- PWA notification bar color - light and dark -->
+  <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141210" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="R/a/dio dan Listen.moe">
+  <meta name="apple-mobile-web-app-title" content="myRadio">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>myRadio</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink:         #1a1a1a;
+      --paper:       #faf9f7;
+      --mist:        #f0ede8;
+      --smoke:       #d8d3cc;
+      --dim:         #8a8278;
+      --violet:      #6b4fa0;
+      --violet-mid:  #9070c8;
+      --violet-pale: #ede8f8;
+      --green:       #6db872;
+      --red:         #e05c5c;
+      --font-serif:  "Fraunces", Georgia, serif;
+      --font-sans:   "Plus Jakarta Sans", system-ui, sans-serif;
+      --t: 0.3s ease;
+      --app-h: calc(var(--vh, 1vh) * 100);
+    }
+    [data-theme="dark"] {
+      --ink:         #e8e4de;
+      --paper:       #141210;
+      --mist:        #1e1b18;
+      --smoke:       #3a3530;
+      --dim:         #7a7268;
+      --violet:      #b39ddb;
+      --violet-mid:  #c8b0f0;
+      --violet-pale: #2a2040;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { user-select: none; -webkit-user-select: none; }
+    /* Disable long-press context menu (klik tahan) */
+    img { -webkit-user-drag: none; pointer-events: none; }
+    .ascii-img { pointer-events: none; }
+
+    html, body {
+      width: 100%; height: var(--app-h); max-height: var(--app-h);
+      overflow: hidden; overscroll-behavior: none;
+      background: var(--paper); color: var(--ink);
+      font-family: var(--font-sans); font-weight: 300;
+      transition: background var(--t), color var(--t);
+    }
+
+    body::before {
+      content: ""; position: fixed; inset: 0;
+      pointer-events: none; z-index: 0; opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 128px;
+    }
+
+    /* ── App shell: 5 rows ── */
+    .app {
+      position: relative; z-index: 1;
+      width: 100%; height: var(--app-h);
+      display: grid;
+      grid-template-rows: auto 1fr auto auto auto;
+      padding: 12px 14px;
+      padding-top:    max(12px, env(safe-area-inset-top));
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .topbar {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; flex-shrink: 0;
+      animation: fadeDown 0.5s ease both;
+    }
+    .brand-label {
+      font-size: 0.55rem; font-weight: 500;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--violet);
+    }
+    .brand-title {
+      font-family: var(--font-serif);
+      font-size: clamp(1.1rem, 5.5vw, 1.6rem);
+      font-weight: 400; letter-spacing: -0.02em;
+      color: var(--ink); transition: color var(--t); line-height: 1; margin: 1px 0;
+    }
+    .brand-subtitle {
+      font-size: 0.58rem; color: var(--dim);
+      letter-spacing: 0.03em; font-weight: 300; transition: color var(--t);
+    }
+    .theme-toggle {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--mist); border: 1px solid var(--smoke);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+      transition: background var(--t), border-color var(--t), transform 0.15s;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .theme-toggle:active { transform: scale(0.88); }
+    .icon-dark  { display: none; }
+    .icon-light { display: block; }
+    [data-theme="dark"] .icon-dark  { display: block; }
+    [data-theme="dark"] .icon-light { display: none; }
+
+    /* ── ASCII art: full width, 1fr ── */
+    .ascii-wrap {
+      min-height: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--smoke);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      transition: border-color var(--t);
+      animation: fadeUp 0.5s ease 0.05s both;
+    }
+    .ascii-img {
+      width: 100%; height: 100%;
+      display: block; object-fit: cover; object-position: center;
+      pointer-events: none;        /* disable tap/long-press context menu */
+      -webkit-user-drag: none;     /* disable drag */
+      -webkit-touch-callout: none; /* disable iOS callout */
+    }
+
+    /* Info panel: two cards side by side, auto height */
+    .info-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      flex-shrink: 0;
+      animation: fadeUp 0.5s ease 0.08s both;
+    }
+
+    /* ── Info card (now playing) ── */
+    .info-card {
+      flex: 1;
+      background: var(--mist);
+      border: 1px solid var(--smoke);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 3px;
+      min-height: 0; overflow: hidden;
+      transition: border-color var(--t), background var(--t);
+    }
+    .info-card.active {
+      border-color: var(--violet-mid);
+      box-shadow: 0 0 0 2px var(--violet-pale);
+    }
+    .info-station {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .info-name {
+      font-family: var(--font-serif);
+      font-size: clamp(0.72rem, 2.5vw, 0.88rem);
+      font-weight: 400; color: var(--ink); transition: color var(--t);
+      line-height: 1;
+    }
+    .copy-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.85rem; color: var(--violet); opacity: 0.65;
+      transition: opacity 0.2s, transform 0.15s;
+      padding: 0; line-height: 1; flex-shrink: 0;
+    }
+    .copy-btn:active { transform: scale(0.85); opacity: 1; }
+    .copy-btn.copied { color: var(--green); opacity: 1; }
+
+    /* Song title: marquee if overflow */
+    .info-song {
+      font-size: clamp(0.6rem, 2vw, 0.72rem);
+      font-weight: 400; color: var(--ink);
+      transition: color var(--t);
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; line-height: 1.3;
+    }
+    .info-song.marquee { animation: marquee 12s linear infinite; }
+    @keyframes marquee {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-60%); }
+    }
+
+    .info-row {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 4px;
+    }
+    .info-dj {
+      font-size: clamp(0.55rem, 1.8vw, 0.65rem);
+      color: var(--dim); transition: color var(--t);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex: 1;
+    }
+    .info-listeners {
+      font-size: 0.55rem; color: var(--violet);
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* ── Players ── */
+    .players {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; flex-shrink: 0;
+      animation: fadeUp 0.5s ease 0.15s both;
+    }
+    .player-card {
+      background: var(--mist); border: 1px solid var(--smoke);
+      border-radius: 12px; padding: 9px 11px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color var(--t), box-shadow var(--t), background var(--t);
+    }
+    .player-card.playing {
+      border-color: var(--violet-mid);
+      box-shadow: 0 0 0 2px var(--violet-pale);
+    }
+    .player-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 4px;
+    }
+    .player-name {
+      font-family: var(--font-serif);
+      font-size: clamp(0.78rem, 2.8vw, 0.95rem);
+      font-weight: 400; color: var(--ink); transition: color var(--t); line-height: 1.1;
+    }
+    .player-link {
+      font-size: 0.55rem; color: var(--violet);
+      text-decoration: none; opacity: 0.65; transition: opacity 0.2s; flex-shrink: 0;
+    }
+    .player-link:hover { opacity: 1; }
+    .status {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.58rem; color: var(--dim); transition: color var(--t);
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--smoke); transition: background 0.3s; flex-shrink: 0;
+    }
+    .dot.live  { background: var(--green); animation: pulse 2s ease infinite; }
+    .dot.error { background: var(--red); }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(.75); }
+    }
+    .player-controls { display: flex; align-items: center; gap: 8px; }
+    .play-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--ink); color: var(--paper);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .play-btn:active { transform: scale(0.88); }
+    .play-btn.playing { background: var(--violet); }
+    .play-btn svg { width: 13px; height: 13px; fill: currentColor; }
+    .volume-wrap { flex: 1; display: flex; align-items: center; gap: 5px; min-width: 0; }
+    .vol-icon { font-size: 0.68rem; color: var(--dim); flex-shrink: 0; }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 3px; background: var(--smoke);
+      border-radius: 99px; outline: none; cursor: pointer;
+      transition: background var(--t); min-width: 0;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+      background: var(--violet); cursor: pointer; transition: transform 0.15s;
+    }
+    input[type="range"]:disabled { opacity: 0.35; pointer-events: none; }
+    input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.3); }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: var(--font-serif); font-style: italic;
+      font-size: 0.58rem; color: var(--dim);
+      letter-spacing: 0.02em; transition: color var(--t);
+      animation: fadeUp 0.5s ease 0.2s both;
+      flex-shrink: 0;
+    }
+    .footer-left { flex: 1; text-align: left; }
+    .footer-data {
+      font-style: normal; font-family: var(--font-sans);
+      font-size: 0.52rem; font-weight: 400;
+      color: var(--violet); opacity: 0.75; white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Offline UI ── */
+    #offlineScreen {
+      display: none; position: fixed; inset: 0; z-index: 9990;
+      background: var(--paper);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 32px;
+      transition: background var(--t);
+    }
+    #offlineScreen.show { display: flex; }
+    .offline-icon { font-size: 2.8rem; line-height: 1; }
+    .offline-title {
+      font-family: var(--font-serif); font-size: 1.3rem; font-weight: 400;
+      color: var(--ink); letter-spacing: -0.02em;
+    }
+    .offline-sub {
+      font-size: 0.65rem; color: var(--dim); text-align: center;
+      line-height: 1.6; max-width: 240px;
+    }
+    .offline-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); margin-top: 4px;
+      animation: pulse 2s ease infinite;
+    }
+
+    /* ── History Widget ── */
+    .history-badge {
+      display:none; position:absolute; top:3px; right:3px;
+      width:7px; height:7px; border-radius:50%;
+      background:var(--green); border:1.5px solid var(--paper);
+    }
+    .history-badge.visible { display:block; }
+
+    .history-overlay {
+      display:none; position:fixed; inset:0; z-index:8000;
+    }
+    .history-overlay.open { display:block; }
+
+    .history-widget {
+      position:fixed; top:54px; right:58px; z-index:8001;
+      width:240px; background:var(--paper);
+      border:1px solid var(--smoke); border-radius:16px; padding:16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+      display:none; flex-direction:column; gap:10px;
+      transition:background var(--t), border-color var(--t);
+      max-height: 70vh;
+    }
+    .history-widget.open {
+      display:flex;
+      animation:hwIn 0.18s ease both;
+    }
+    @keyframes hwIn {
+      from { opacity:0; transform:translateY(-8px) scale(0.96); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .hw-header { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .hw-title {
+      font-family:var(--font-serif); font-size:0.92rem; font-weight:400;
+      color:var(--ink); letter-spacing:-0.01em;
+    }
+    .hw-actions { display:flex; align-items:center; gap:8px; }
+    .hw-clear {
+      background:none; border:none; cursor:pointer;
+      font-size:0.52rem; color:var(--dim); letter-spacing:0.04em;
+      text-transform:uppercase; padding:2px 4px;
+      transition:color var(--t);
+    }
+    .hw-clear:hover { color:var(--red); }
+    .hw-close {
+      background:none; border:none; cursor:pointer;
+      color:var(--dim); font-size:1rem; line-height:1; padding:2px;
+    }
+
+    .hw-tabs {
+      display:flex; gap:6px; flex-shrink:0;
+    }
+    .hw-tab {
+      flex:1; padding:5px 0; border:1px solid var(--smoke);
+      border-radius:8px; background:var(--mist); cursor:pointer;
+      font-family:var(--font-sans); font-size:0.58rem; font-weight:500;
+      color:var(--dim); text-align:center; letter-spacing:0.02em;
+      transition:background var(--t), border-color var(--t), color var(--t);
+    }
+    .hw-tab.active {
+      background:var(--violet-pale); border-color:var(--violet-mid);
+      color:var(--violet);
+    }
+
+    .hw-list {
+      overflow-y:auto; display:flex; flex-direction:column; gap:6px;
+      flex:1; min-height:0;
+      /* custom scrollbar */
+      scrollbar-width:thin; scrollbar-color:var(--smoke) transparent;
+    }
+    .hw-list::-webkit-scrollbar { width:3px; }
+    .hw-list::-webkit-scrollbar-thumb { background:var(--smoke); border-radius:99px; }
+
+    .hw-item {
+      display:flex; flex-direction:column; gap:2px;
+      padding:7px 9px; border-radius:9px;
+      background:var(--mist); border:1px solid transparent;
+      transition:background var(--t), border-color var(--t);
+    }
+    .hw-item:first-child {
+      border-color:var(--violet-pale);
+    }
+    .hw-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:4px; }
+    .hw-song {
+      font-size:0.65rem; font-weight:400; color:var(--ink);
+      line-height:1.3; flex:1;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+      overflow:hidden;
+    }
+    .hw-copy {
+      background:none; border:none; cursor:pointer;
+      font-size:0.75rem; color:var(--violet); opacity:0.55;
+      transition:opacity 0.2s, transform 0.15s;
+      padding:0; flex-shrink:0; line-height:1;
+    }
+    .hw-copy:active { transform:scale(0.85); opacity:1; }
+    .hw-copy.copied { color:var(--green); opacity:1; }
+    .hw-meta {
+      font-size:0.55rem; color:var(--dim);
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .hw-empty {
+      text-align:center; padding:20px 0;
+      font-family:var(--font-serif); font-style:italic;
+      font-size:0.72rem; color:var(--dim);
+    }
+
+    /* ── Sleep Timer ── */
+    .timer-badge {
+      display:none; position:absolute; top:3px; right:3px;
+      width:7px; height:7px; border-radius:50%;
+      background:var(--violet); border:1.5px solid var(--paper);
+    }
+    .timer-badge.visible { display:block; }
+
+    .timer-overlay {
+      display:none; position:fixed; inset:0; z-index:8000;
+    }
+    .timer-overlay.open { display:block; }
+
+    .timer-widget {
+      position:fixed; top:54px; right:14px; z-index:8001;
+      width:218px; background:var(--paper);
+      border:1px solid var(--smoke); border-radius:16px; padding:16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+      display:none; flex-direction:column; gap:12px;
+      transition:background var(--t), border-color var(--t);
+    }
+    .timer-widget.open {
+      display:flex;
+      animation:twIn 0.18s ease both;
+    }
+    @keyframes twIn {
+      from { opacity:0; transform:translateY(-8px) scale(0.96); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+
+    .tw-header { display:flex; align-items:center; justify-content:space-between; }
+    .tw-title {
+      font-family:var(--font-serif); font-size:0.92rem; font-weight:400;
+      color:var(--ink); letter-spacing:-0.01em;
+    }
+    .tw-close {
+      background:none; border:none; cursor:pointer;
+      color:var(--dim); font-size:1rem; line-height:1; padding:2px;
+      transition:color var(--t);
+    }
+
+    .tw-dur-row { display:flex; align-items:center; gap:8px; }
+    .tw-dur-label { font-size:0.58rem; color:var(--dim); flex-shrink:0; }
+    .tw-input-wrap {
+      flex:1; display:flex; align-items:center; gap:4px;
+      background:var(--mist); border:1px solid var(--smoke);
+      border-radius:8px; padding:5px 8px;
+      transition:border-color var(--t), box-shadow var(--t), background var(--t);
+    }
+    .tw-input-wrap:focus-within {
+      border-color:var(--violet-mid);
+      box-shadow:0 0 0 2px var(--violet-pale);
+    }
+    .tw-input {
+      width:100%; background:none; border:none; outline:none;
+      font-family:var(--font-sans); font-size:0.82rem; font-weight:500;
+      color:var(--ink); text-align:center;
+      -webkit-user-select:text; user-select:text;
+    }
+    .tw-input::-webkit-inner-spin-button,
+    .tw-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+    .tw-unit { font-size:0.55rem; color:var(--dim); flex-shrink:0; }
+
+    .tw-countdown {
+      text-align:center; font-family:var(--font-serif);
+      font-size:2.1rem; font-weight:300; letter-spacing:-0.03em;
+      color:var(--dim); line-height:1; min-height:2.1rem;
+      transition: color 0.4s ease;
+    }
+    .timer-widget.running .tw-countdown { color: var(--violet); }
+    .tw-countdown.ending { animation:twPulse 1s ease infinite; }
+    @keyframes twPulse { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+    /* POLISHED: cancel button more visible */
+    .tw-action {
+      width:100%; padding:9px; border:none; border-radius:10px; cursor:pointer;
+      font-family:var(--font-sans); font-size:0.68rem; font-weight:500;
+      letter-spacing:0.05em; background:var(--ink); color:var(--paper);
+      transition:background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .tw-action:active { transform:scale(0.96); box-shadow:none; }
+    .tw-action.cancel {
+      background:var(--violet);
+      color:#fff;
+      box-shadow: 0 2px 12px rgba(107,79,160,0.35);
+    }
+
+    .tw-info {
+      font-size:0.52rem; color:var(--dim); text-align:center;
+      line-height:1.55; letter-spacing:0.01em;
+    }
+    .tw-info em { color:var(--violet); font-style:normal; }
+
+    /* ── Install Banner ── */
+    .install-banner {
+      display: none;
+      position: fixed; bottom: 16px; left: 14px; right: 14px; z-index: 9998;
+      background: var(--violet-pale);
+      border: 1px solid var(--violet-mid);
+      border-radius: 12px; padding: 10px 14px;
+      align-items: center; justify-content: space-between; gap: 8px;
+      box-shadow: 0 4px 20px rgba(107,79,160,0.2);
+      animation: fadeUp 0.3s ease both;
+      transition: background var(--t), border-color var(--t);
+    }
+    .install-banner.show { display: flex; }
+    .install-left { display: flex; align-items: center; gap: 8px; }
+    .install-icon { font-size: 1.2rem; }
+    .install-text { font-size: 0.62rem; color: var(--violet); line-height: 1.4; font-weight: 400; }
+    .install-text strong { display: block; font-weight: 500; font-size: 0.68rem; }
+    .install-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .install-btn {
+      font-size: 0.62rem; font-weight: 500;
+      background: var(--violet); color: var(--paper);
+      border: none; border-radius: 8px; padding: 6px 12px;
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .install-btn:active { transform: scale(0.93); opacity: 0.85; }
+    .install-dismiss {
+      background: none; border: none; cursor: pointer;
+      color: var(--dim); font-size: 1rem; line-height: 1; padding: 2px;
+      transition: color var(--t);
+    }
+
+    /* ── Splash ── */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #6b4fa0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 6px;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    #splash.hide { opacity: 0; visibility: hidden; }
+    #splash-title {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 2rem; font-weight: 400;
+      color: #faf9f7; letter-spacing: -0.02em;
+    }
+    #splash-sub {
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      font-size: 0.6rem; font-weight: 300;
+      color: rgba(250,249,247,0.55); letter-spacing: 0.2em; text-transform: uppercase;
+    }
+    #splash-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(250,249,247,0.4); margin-top: 6px;
+      animation: splashPulse 1s ease infinite;
+    }
+    @keyframes splashPulse {
+      0%,100% { transform: scale(1); opacity: 0.4; }
+      50%      { transform: scale(1.5); opacity: 1; }
+    }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(10px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes fadeDown {
+      from { opacity:0; transform:translateY(-8px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Splash -->
+<div id="splash">
+  <div id="splash-title">myRadio</div>
+  <div id="splash-sub" data-i18n="tagline">Direct Stream Radio</div>
+  <div id="splash-dot"></div>
+</div>
+
+<div class="app">
+
+  <!-- Header -->
+  <header class="topbar">
+    <div>
+      <div class="brand-label">myRadio</div>
+      <div class="brand-title">Radio</div>
+      <div class="brand-subtitle" data-i18n="tagline">Direct Stream Radio</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-top:2px;">
+      <button class="theme-toggle" id="historyToggleBtn" onclick="openHistoryWidget()" aria-label="Riwayat lagu" data-i18n-aria="history_aria" style="position:relative;">
+        🎵
+        <span class="history-badge" id="historyBadge"></span>
+      </button>
+      <button class="theme-toggle" id="timerToggleBtn" onclick="openTimerWidget()" aria-label="Sleep Timer" data-i18n-aria="timer_aria" style="position:relative;">
+        ⏱
+        <span class="timer-badge" id="timerBadge"></span>
+      </button>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle tema"  data-i18n-aria="theme_aria">
+        <span class="icon-light">🌙</span>
+        <span class="icon-dark">☀️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ASCII Art: full width -->
+  <div class="ascii-wrap">
+    <img class="ascii-img" id="asciiImg"
+      src="https://i.ibb.co.com/p6Z6GqB2/ascii-art.png" alt="ascii art">
+  </div>
+
+  <!-- Info panel: side by side -->
+  <div class="info-panel">
+
+    <!-- r/a/dio info -->
+    <div class="info-card" id="info-card-rad">
+      <div class="info-station">
+        <span class="info-name">r/a/dio</span>
+        <button class="copy-btn" id="copy-rad" onclick="copyNowPlaying('rad')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+      </div>
+      <div class="info-song" id="np-rad-song">—</div>
+      <div class="info-row">
+        <span class="info-dj" id="np-rad-dj">DJ: —</span>
+        <span class="info-listeners" id="np-rad-listeners"></span>
+      </div>
+    </div>
+
+    <!-- listen.moe info -->
+    <div class="info-card" id="info-card-lmoe">
+      <div class="info-station">
+        <span class="info-name">listen.moe</span>
+        <button class="copy-btn" id="copy-lmoe" onclick="copyNowPlaying('lmoe')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+      </div>
+      <div class="info-song" id="np-lmoe-song">—</div>
+      <div class="info-row">
+        <span class="info-dj" id="np-lmoe-artist" data-i18n-prefix="artist_label">Artis: —</span>
+        <span class="info-listeners" id="np-lmoe-listeners"></span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Players -->
+  <div class="players">
+
+    <!-- r/a/dio player -->
+    <div class="player-card" id="card-rad">
+      <div class="player-top">
+        <span class="player-name">r/a/dio</span>
+        <a class="player-link" href="https://r-a-d.io/" target="_blank" rel="noopener">↗</a>
+      </div>
+      <div class="status">
+        <span class="dot" id="dot-rad"></span>
+        <span id="status-rad">siap</span>
+      </div>
+      <div class="player-controls">
+        <button class="play-btn" id="btn-rad" onclick="togglePlay('rad')" aria-label="Play r/a/dio">
+          <svg id="icon-rad" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="volume-wrap">
+          <span class="vol-icon">🔈</span>
+          <input type="range" min="0" max="1" step="0.01" value="1" id="vol-rad" oninput="setVolume('rad',this.value)">
+        </div>
+      </div>
+      <audio id="audio-rad" preload="none"></audio>
+    </div>
+
+    <!-- listen.moe player -->
+    <div class="player-card" id="card-lmoe">
+      <div class="player-top">
+        <span class="player-name">listen.moe</span>
+        <a class="player-link" href="https://listen.moe/" target="_blank" rel="noopener">↗</a>
+      </div>
+      <div class="status">
+        <span class="dot" id="dot-lmoe"></span>
+        <span id="status-lmoe">siap</span>
+      </div>
+      <div class="player-controls">
+        <button class="play-btn" id="btn-lmoe" onclick="togglePlay('lmoe')" aria-label="Play listen.moe">
+          <svg id="icon-lmoe" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="volume-wrap">
+          <span class="vol-icon">🔈</span>
+          <input type="range" min="0" max="1" step="0.01" value="1" id="vol-lmoe" oninput="setVolume('lmoe',this.value)">
+        </div>
+      </div>
+      <audio id="audio-lmoe" preload="none"></audio>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <span class="footer-left" data-i18n="footer">📻 myRadio · Made with love for Personal Use</span>
+    <span class="footer-data" id="dataUsage">0 MB</span>
+  </footer>
+</div>
+
+
+<!-- Timer overlay -->
+
+<!-- History overlay -->
+<!-- Offline Screen -->
+<div id="offlineScreen">
+  <span class="offline-icon">📡</span>
+  <div class="offline-title" data-i18n="offline_title">Tidak Ada Koneksi</div>
+  <p class="offline-sub" data-i18n-html="offline_sub">myRadio butuh internet untuk streaming.<br>Sambungkan ke WiFi atau data seluler, lalu coba lagi.</p>
+  <div class="offline-dot"></div>
+</div>
+
+<div class="history-overlay" id="historyOverlay" onclick="closeHistoryWidget()"></div>
+
+<!-- History widget -->
+<div class="history-widget" id="historyWidget">
+  <div class="hw-header">
+    <span class="hw-title" data-i18n="history_title">Last Played</span>
+    <div class="hw-actions">
+      <button class="hw-clear" onclick="clearHistory()" data-i18n="history_clear">Hapus</button>
+      <button class="hw-close" onclick="closeHistoryWidget()">✕</button>
+    </div>
+  </div>
+  <div class="hw-tabs">
+    <button class="hw-tab active" id="hw-tab-rad" onclick="switchHistoryTab('rad')">r/a/dio</button>
+    <button class="hw-tab" id="hw-tab-lmoe" onclick="switchHistoryTab('lmoe')">listen.moe</button>
+  </div>
+  <p style="font-size:0.5rem;color:var(--dim);text-align:center;line-height:1.5;letter-spacing:0.01em;flex-shrink:0;">
+    <span data-i18n="history_info">Maks. 50 lagu per stasiun. Hanya tercatat saat app aktif — lagu terlama terhapus otomatis saat penuh.</span>
+  </p>
+  <div class="hw-list" id="hwList"></div>
+</div>
+
+<div class="timer-overlay" id="timerOverlay" onclick="closeTimerWidget()"></div>
+
+<!-- Timer widget -->
+<div class="timer-widget" id="timerWidget">
+  <div class="tw-header">
+    <span class="tw-title" data-i18n="timer_title">Sleep Timer</span>
+    <button class="tw-close" onclick="closeTimerWidget()">✕</button>
+  </div>
+  <div class="tw-dur-row">
+    <span class="tw-dur-label" data-i18n="timer_dur">Durasi</span>
+    <div class="tw-input-wrap">
+      <input class="tw-input" id="twInput" type="number"
+        min="1" max="99999999" value="15" inputmode="numeric"
+        oninput="if(this.value.length>8)this.value=this.value.slice(0,8);updateStandby()"
+        onkeydown="if(event.key==='Enter'){startTimer();closeTimerWidget();}"
+      >
+      <span class="tw-unit" data-i18n="timer_unit">menit</span>
+    </div>
+  </div>
+  <div class="tw-countdown" id="twCountdown"></div>
+  <button class="tw-action" id="twActionBtn" onclick="toggleTimer()" data-i18n="timer_start">Mulai Timer</button>
+  <p class="tw-info" id="twInfo"></p>
+</div>
+
+<!-- Install Banner (outside .app, fixed position) -->
+<div class="install-banner" id="installBanner">
+  <div class="install-left">
+    <span class="install-icon">📻</span>
+    <div class="install-text">
+      <strong data-i18n="install_title">Install myRadio</strong>
+      <span data-i18n="install_sub">Tambah ke home screen!</span>
+    </div>
+  </div>
+  <div class="install-actions">
+    <button class="install-btn" id="installBtn">Install</button>
+    <button class="install-dismiss" id="dismissBtn">✕</button>
+  </div>
+</div>
+
+<script>
+  // ── VH Fix ──
+  function setVH() {
+    document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+  }
+  setVH();
+  window.addEventListener('resize', setVH);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setVH(); });
+  window.addEventListener('pageshow', setVH);
+  window.addEventListener('focus', setVH);
+
+  // ── Prevent pinch zoom & pull-to-refresh ──
+  document.addEventListener('touchmove', e => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  // Disable right-click / long-press context menu
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ── Splash ──
+  const splash = document.getElementById('splash');
+  window.addEventListener('load', () => setTimeout(() => splash.classList.add('hide'), 600));
+  setTimeout(() => splash.classList.add('hide'), 1800);
+
+  // ── Constants ──
+  const ASCII_LIGHT = 'https://i.ibb.co.com/p6Z6GqB2/ascii-art.png';
+  const ASCII_DARK  = 'https://i.ibb.co.com/FbCYM72m/image.png';
+
+  // Preload both images into browser cache immediately
+  // so switching theme is instant after first load (no re-request)
+  (function preload() {
+    [ASCII_LIGHT, ASCII_DARK].forEach(function(url) {
+      const img = new Image();
+      img.src = url;
+    });
+  })();
+  const PHOTO_ICON   = 'https://i.ibb.co.com/tMZcssjB/20260303-204321.png';
+  const RAD_STREAMS  = [
+    'https://relay1.r-a-d.io/main.mp3',
+    'https://relay0.r-a-d.io/main.mp3',
+    'https://relay2.r-a-d.io/main.mp3'
+  ];
+  const LMOE_STREAMS = ['https://listen.moe/stream', 'https://listen.moe/opus', 'https://listen.moe/fallback'];
+  const PLAY   = '<path d="M8 5v14l11-7z"/>';
+  const PAUSE  = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+  const STATIONS = ['rad', 'lmoe'];
+  const $        = id => document.getElementById(id);
+
+  let radIdx = 0, lmoeIdx = 0;
+
+  // ── Now Playing state ──
+  const nowPlaying = {
+    rad:  { song: '', dj: '', listeners: 0 },
+    lmoe: { song: '', artist: '', listeners: 0 }
+  };
+
+
+  // ── i18n: Language Detection & Strings ──
+  const LANG = (function() {
+    const l = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+    return l.startsWith('id') ? 'id' : 'en';
+  })();
+
+  document.getElementById('htmlRoot').setAttribute('lang', LANG);
+
+  const STR = {
+    id: {
+      tagline:       'Direct Stream Radio',
+      footer:        '📻 myRadio · Dibuat dengan ❤ untuk Penggunaan Pribadi',
+      offline_title: 'Tidak Ada Koneksi',
+      offline_sub:   'myRadio butuh internet untuk streaming.<br>Sambungkan ke WiFi atau data seluler, lalu coba lagi.',
+      history_title: 'Terakhir Diputar',
+      history_clear: 'Hapus',
+      history_info:  'Maks. 50 lagu per stasiun. Hanya tercatat saat app aktif — lagu terlama terhapus otomatis saat penuh.',
+      history_empty: 'Belum ada riwayat',
+      timer_title:   'Sleep Timer',
+      timer_dur:     'Durasi',
+      timer_unit:    'menit',
+      timer_start:   'Mulai Timer',
+      timer_cancel:  'Batalkan Timer',
+      timer_info:    '1 menit sebelum habis, <em>semua slider volume turun perlahan</em> hingga 0 lalu app ditutup.',
+      timer_fading:  '<em>Volume sedang turun...</em> App akan ditutup sebentar lagi.',
+      install_title: 'Install myRadio',
+      install_sub:   'Tambah ke home screen!',
+      copy_title:    'Salin judul lagu',
+      artist_label:  'Artis: ',
+      timer_aria:    'Sleep Timer',
+      history_aria:  'Riwayat lagu',
+      theme_aria:    'Toggle tema',
+      status_ready:  'siap',
+      status_failed: 'gagal',
+      status_all_failed: 'semua gagal',
+      status_buf:    'buffering…',
+      status_conn:   'menghubungkan…',
+      status_retry:  'mencoba ulang',
+      dj_label:      'DJ: ',
+      ago_just:      'barusan',
+      ago_min:       'mnt lalu',
+      ago_hour:      'jam lalu',
+      ago_day:       'hari lalu',
+    },
+    en: {
+      tagline:       'Direct Stream Radio',
+      footer:        '📻 myRadio · Made with ❤ for Personal Use',
+      offline_title: 'No Connection',
+      offline_sub:   'myRadio needs internet to stream.<br>Connect to WiFi or mobile data and try again.',
+      history_title: 'Last Played',
+      history_clear: 'Clear',
+      history_info:  'Max. 50 songs per station. Only recorded while app is open — oldest removed when full.',
+      history_empty: 'No history yet',
+      timer_title:   'Sleep Timer',
+      timer_dur:     'Duration',
+      timer_unit:    'min',
+      timer_start:   'Start Timer',
+      timer_cancel:  'Cancel Timer',
+      timer_info:    '1 minute before end, <em>all volume sliders fade slowly</em> to 0 then app closes.',
+      timer_fading:  '<em>Volume fading...</em> App will close shortly.',
+      install_title: 'Install myRadio',
+      install_sub:   'Add to home screen!',
+      copy_title:    'Copy song title',
+      artist_label:  'Artist: ',
+      timer_aria:    'Sleep Timer',
+      history_aria:  'Song history',
+      theme_aria:    'Toggle theme',
+      status_ready:  'ready',
+      status_failed: 'failed',
+      status_all_failed: 'all failed',
+      status_buf:    'buffering…',
+      status_conn:   'connecting…',
+      status_retry:  'retrying',
+      dj_label:      'DJ: ',
+      ago_just:      'just now',
+      ago_min:       'min ago',
+      ago_hour:      'hr ago',
+      ago_day:       'day ago',
+    }
+  };
+
+  const T = STR[LANG];
+
+  // Apply all data-i18n attributes
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (T[key] !== undefined) el.textContent = T[key];
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.getAttribute('data-i18n-html');
+    if (T[key] !== undefined) el.innerHTML = T[key];
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const key = el.getAttribute('data-i18n-aria');
+    if (T[key] !== undefined) el.setAttribute('aria-label', T[key]);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (T[key] !== undefined) el.setAttribute('title', T[key]);
+  });
+  document.querySelectorAll('[data-i18n-prefix]').forEach(el => {
+    el.textContent = T['artist_label'] + '—';
+  });
+
+  // Init dynamic strings that need T after detection
+  $('twInfo').innerHTML = T.timer_info;
+  $('status-rad').textContent  = T.status_ready;
+  $('status-lmoe').textContent = T.status_ready;
+  $('np-lmoe-artist').textContent = T.artist_label + '—';
+
+
+  const root          = document.documentElement;
+  const toggleBtn     = document.getElementById('themeToggle');
+  const asciiImg      = document.getElementById('asciiImg');
+  const themeColorMeta= document.getElementById('themeColorMeta');
+  let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme    = localStorage.getItem('myradio-theme');
+  if (savedTheme) isDark = savedTheme === 'dark';
+
+  function applyTheme(dark) {
+    isDark = dark;
+    root.setAttribute('data-theme', dark ? 'dark' : 'light');
+    asciiImg.src = dark ? ASCII_DARK : ASCII_LIGHT;
+    themeColorMeta.setAttribute('content', dark ? '#141210' : '#6b4fa0');
+    localStorage.setItem('myradio-theme', dark ? 'dark' : 'light');
+  }
+  applyTheme(isDark);
+  toggleBtn.addEventListener('click', () => applyTheme(!isDark));
+
+  // ── Service Worker ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('./sw.js').catch(() => {})
+    );
+  }
+
+  // ── Install Banner ──
+  let deferredPrompt = null;
+  const installBanner = document.getElementById('installBanner');
+  const installBtn    = document.getElementById('installBtn');
+  const dismissBtn    = document.getElementById('dismissBtn');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // Tampilkan banner setelah splash hilang
+    setTimeout(() => installBanner.classList.add('show'), 2000);
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    installBanner.classList.remove('show');
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  });
+
+  dismissBtn.addEventListener('click', () => {
+    installBanner.classList.remove('show');
+    // Jangan tanya lagi dalam sesi ini
+    deferredPrompt = null;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBanner.classList.remove('show');
+    deferredPrompt = null;
+  });
+
+  // ── Copy Now Playing to clipboard ──
+  function copyNowPlaying(id) {
+    const np  = nowPlaying[id];
+    const btn = document.getElementById('copy-' + id);
+    let text  = '';
+
+    if (id === 'rad') {
+      text = np.song || '';
+    } else {
+      text = np.song ? (np.artist ? np.song + ' - ' + np.artist : np.song) : '';
+    }
+
+    if (!text) {
+      btn.textContent = '?';
+      setTimeout(() => { btn.textContent = '⎘'; btn.classList.remove('copied'); }, 1200);
+      return;
+    }
+
+    function showCopied() {
+      btn.textContent = '✓'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '⎘'; btn.classList.remove('copied'); }, 2000);
+    }
+    function doFallback() {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      document.body.removeChild(ta);
+      showCopied();
+    }
+
+    // Guard: navigator.clipboard may not exist on old Android / non-HTTPS
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(showCopied).catch(doFallback);
+    } else {
+      doFallback();
+    }
+  }
+
+  // ── r/a/dio API (polling setiap 10 detik) ──
+  let lastRadTrack = null;  // { song, dj } — lagu yang sedang/terakhir main
+
+  async function fetchRadAPI() {
+    try {
+      const res  = await fetch('https://r-a-d.io/api');
+      const data = await res.json();
+      const main = data.main;
+
+      nowPlaying.rad.song      = main.np       || '';
+      nowPlaying.rad.dj        = main.dj ? main.dj.djname : 'AutoDJ';
+      nowPlaying.rad.listeners = main.listeners || 0;
+
+      $('np-rad-song').textContent      = nowPlaying.rad.song || '—';
+      $('np-rad-dj').textContent        = T.dj_label + nowPlaying.rad.dj;
+      $('np-rad-listeners').textContent = nowPlaying.rad.listeners
+        ? '👥 ' + nowPlaying.rad.listeners : '';
+
+      // Lagu berganti → catat lagu LAMA ke history
+      if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
+        pushTrack('rad', { song: lastRadTrack.song, sub: lastRadTrack.dj });
+      }
+      // Update "sekarang main"
+      if (nowPlaying.rad.song) {
+        lastRadTrack = { song: nowPlaying.rad.song, dj: nowPlaying.rad.dj };
+      }
+
+      if (!$('audio-rad').paused) updateMediaSession('rad');
+
+    } catch (_) { /* silent fail */ }
+  }
+  fetchRadAPI();
+  setInterval(fetchRadAPI, 10000);
+
+  // ── listen.moe WebSocket (robust auto-reconnect) ──
+  let lmoeWS         = null;
+  let lmoeHBTimer    = null;
+  let lmoeReconTimer = null;
+  let lmoeReconDelay = 3000;       // mulai 3 detik
+  const LMOE_MAX_DELAY = 30000;    // max 30 detik
+
+  function updateLmoeUI() {
+    $('np-lmoe-song').textContent      = nowPlaying.lmoe.song || '—';
+    $('np-lmoe-artist').textContent    = nowPlaying.lmoe.artist
+      ? T.artist_label + nowPlaying.lmoe.artist : T.artist_label + '—';
+    $('np-lmoe-listeners').textContent = nowPlaying.lmoe.listeners
+      ? '👥 ' + nowPlaying.lmoe.listeners : '';
+    // NOTE: pushTrack NOT called here — called only on real TRACK_UPDATE below
+    if (!$('audio-lmoe').paused) updateMediaSession('lmoe');
+  }
+
+  let lastLmoeTrack = null;  // { song, artist } — lagu yang sedang/terakhir main
+
+  function scheduleRecon() {
+    clearTimeout(lmoeReconTimer);
+    lmoeReconTimer = setTimeout(function() {
+      lmoeReconDelay = Math.min(lmoeReconDelay * 1.5, LMOE_MAX_DELAY);
+      connectLmoeWS();
+    }, lmoeReconDelay);
+  }
+
+  function connectLmoeWS() {
+    // Skip kalau lagi connecting/open
+    if (lmoeWS && (lmoeWS.readyState === 0 || lmoeWS.readyState === 1)) return;
+    clearTimeout(lmoeReconTimer);
+    clearInterval(lmoeHBTimer);
+
+    try { lmoeWS = new WebSocket('wss://listen.moe/gateway_v2'); }
+    catch(e) { scheduleRecon(); return; }
+
+    lmoeWS.onopen = function() {
+      lmoeReconDelay = 3000; // reset delay setelah sukses
+      lmoeWS.send(JSON.stringify({ op: 0, d: { auth: null } }));
+    };
+
+    lmoeWS.onmessage = function(msg) {
+      var data;
+      try { data = JSON.parse(msg.data); } catch(e) { return; }
+
+      // Hello: dapat heartbeat interval dari server
+      if (data.op === 0 && data.d && data.d.heartbeat) {
+        clearInterval(lmoeHBTimer);
+        lmoeHBTimer = setInterval(function() {
+          if (lmoeWS && lmoeWS.readyState === 1)
+            lmoeWS.send(JSON.stringify({ op: 9 }));
+        }, data.d.heartbeat);
+      }
+
+      // Track update — real song change
+      if (data.op === 1 && (data.t === 'TRACK_UPDATE' || data.t === 'TRACK_UPDATE_REQUEST')) {
+        if (data.d && data.d.song) {
+          var song = data.d.song;
+          var newSong   = song.titleRomaji || song.title || '';
+          var newArtist = song.artists
+            ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
+            : '';
+
+          // Lagu berganti → catat lagu LAMA ke history
+          if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
+            pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
+          }
+          // Update "sekarang main"
+          if (newSong) lastLmoeTrack = { song: newSong, artist: newArtist };
+
+          nowPlaying.lmoe.song   = newSong;
+          nowPlaying.lmoe.artist = newArtist;
+        }
+        if (data.d && data.d.listeners !== undefined) nowPlaying.lmoe.listeners = data.d.listeners;
+        updateLmoeUI();
+      }
+
+      // Listener count update only — update UI but do NOT push history
+      if (data.op === 1 && data.t === 'LISTEN_STATS') {
+        if (data.d && data.d.listeners !== undefined) nowPlaying.lmoe.listeners = data.d.listeners;
+        updateLmoeUI();
+      }
+    };
+
+    lmoeWS.onclose = function() { clearInterval(lmoeHBTimer); scheduleRecon(); };
+    lmoeWS.onerror = function() { /* onclose fires automatically */ };
+  }
+  connectLmoeWS();
+
+  // Reconnect saat ganti wifi/data
+  window.addEventListener('online', function() {
+    lmoeReconDelay = 3000;
+    connectLmoeWS();
+    fetchRadAPI();
+  });
+
+  // Reconnect saat app kembali ke foreground
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      fetchRadAPI();
+      if (!lmoeWS || lmoeWS.readyState > 1) connectLmoeWS();
+    }
+  });
+
+  // ── Player Logic ──
+  function stopOthers(id) {
+    STATIONS.forEach(o => {
+      if (o === id) return;
+      const a = $('audio-' + o);
+      if (!a.paused) { a.pause(); setStopped(o); }
+    });
+  }
+  function setPlaying(id) {
+    $('icon-'   + id).innerHTML = PAUSE;
+    $('btn-'    + id).classList.add('playing');
+    $('dot-'    + id).classList.add('live');
+    $('dot-'    + id).classList.remove('error');
+    $('status-' + id).textContent = 'live ●';
+    $('card-'   + id).classList.add('playing');
+    $('info-card-' + id).classList.add('active');
+  }
+  function setStopped(id) {
+    $('icon-'   + id).innerHTML = PLAY;
+    $('btn-'    + id).classList.remove('playing');
+    $('dot-'    + id).classList.remove('live', 'error');
+    $('status-' + id).textContent = T.status_ready;
+    $('card-'   + id).classList.remove('playing');
+    $('info-card-' + id).classList.remove('active');
+  }
+  function setError(id, msg) {
+    setStopped(id);
+    $('dot-'    + id).classList.add('error');
+    $('status-' + id).textContent = msg || T.status_failed;
+  }
+  function tryStream(id, streams, idx) {
+    const audio = $('audio-' + id);
+    if (idx >= streams.length) { setError(id, T.status_all_failed); return; }
+    $('status-' + id).textContent = idx === 0 ? T.status_conn : T.status_retry + ' ' + idx + '…';
+    audio.src = streams[idx];
+    audio.load();
+    audio.play()
+      .then(() => {
+        setPlaying(id);
+        localStorage.setItem('myradio-station', id);
+        if (id === 'rad')  radIdx  = idx;
+        if (id === 'lmoe') lmoeIdx = idx;
+      })
+      .catch(err => {
+        // AbortError = user stopped manually, don't retry
+        if (err && err.name === 'AbortError') return;
+        tryStream(id, streams, idx + 1);
+      });
+  }
+  function togglePlay(id) {
+    const audio = $('audio-' + id);
+    stopOthers(id);
+    if (!audio.paused) { audio.pause(); setStopped(id); return; }
+    const streams = id === 'rad' ? RAD_STREAMS : LMOE_STREAMS;
+    tryStream(id, streams, 0);
+  }
+  function setVolume(id, val) { $('audio-' + id).volume = parseFloat(val); }
+
+  function switchToStation(id) {
+    stopOthers(id);
+    if ($('audio-' + id).paused) {
+      const streams = id === 'rad' ? RAD_STREAMS : LMOE_STREAMS;
+      tryStream(id, streams, 0);
+    }
+  }
+
+  // ── Media Session ──
+  function updateMediaSession(id) {
+    if (!('mediaSession' in navigator)) return;
+
+    const np = nowPlaying[id];
+    let title, artist, album;
+
+    if (id === 'rad') {
+      title  = np.song || 'r/a/dio';
+      artist = np.dj   ? T.dj_label + np.dj : 'r/a/dio';
+      album  = 'r/a/dio';
+    } else {
+      title  = np.song   || 'listen.moe';
+      artist = np.artist || 'listen.moe';
+      album  = 'listen.moe';
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist,
+      album,
+      artwork: [
+        { src: PHOTO_ICON, sizes: '512x512', type: 'image/jpeg' },
+        { src: PHOTO_ICON, sizes: '192x192', type: 'image/jpeg' }
+      ]
+    });
+
+    navigator.mediaSession.setActionHandler('play',  () => { if ($('audio-'+id).paused) togglePlay(id); });
+    navigator.mediaSession.setActionHandler('pause', () => { if (!$('audio-'+id).paused) { $('audio-'+id).pause(); setStopped(id); } });
+    navigator.mediaSession.setActionHandler('stop',  () => { if (!$('audio-'+id).paused) { $('audio-'+id).pause(); setStopped(id); } });
+
+    const idx  = STATIONS.indexOf(id);
+    const next = STATIONS[(idx + 1) % STATIONS.length];
+    const prev = STATIONS[(idx - 1 + STATIONS.length) % STATIONS.length];
+    navigator.mediaSession.setActionHandler('nexttrack',     () => switchToStation(next));
+    navigator.mediaSession.setActionHandler('previoustrack', () => switchToStation(prev));
+  }
+
+  // ── Audio event listeners ──
+  STATIONS.forEach(id => {
+    const audio   = $('audio-' + id);
+    const streams = id === 'rad' ? RAD_STREAMS : LMOE_STREAMS;
+    const getIdx  = () => id === 'rad' ? radIdx : lmoeIdx;
+
+    audio.addEventListener('error', () => {
+      if (audio.paused) return;
+      tryStream(id, streams, getIdx() + 1);
+    });
+    audio.addEventListener('playing', () => {
+      setPlaying(id);
+      updateMediaSession(id);
+      if ('mediaSession' in navigator)
+        navigator.mediaSession.playbackState = 'playing';
+    });
+    audio.addEventListener('pause', () => {
+      if ('mediaSession' in navigator)
+        navigator.mediaSession.playbackState = 'paused';
+    });
+    audio.addEventListener('stalled', () => {
+      if (!audio.paused) $('status-' + id).textContent = T.status_buf;
+    });
+  });
+
+  // ── Sleep Timer ──
+  let sleepEnd     = 0;
+  let sleepTickID  = null;
+  let sleepTimerID = null;
+  let fadeInterval = null;
+  let fadingVol    = false;
+  let savedVols    = {};   // snapshot at fade-start: { rad: 0.8, lmoe: 0.5 }
+
+  const twInput      = $('twInput');
+  const twCountdown  = $('twCountdown');
+  const twActionBtn  = $('twActionBtn');
+  const twInfo       = $('twInfo');
+  const timerBadge   = $('timerBadge');
+
+  function openTimerWidget()  { $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
+  function closeTimerWidget() { $('timerWidget').classList.remove('open'); $('timerOverlay').classList.remove('open'); }
+
+  function fmtTime(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function fmtMins(mins) {
+    const m = parseInt(mins, 10) || 0;
+    return m + ':00';
+  }
+
+  function updateStandby() {
+    if (!sleepTimerID) {
+      twCountdown.textContent = fmtMins(twInput.value);
+    }
+  }
+
+  // Init standby display on load
+  twCountdown.textContent = fmtMins(twInput.value);
+
+  function toggleTimer() { sleepTimerID ? cancelTimer() : startTimer(); }
+
+  function startTimer() {
+    timerFired = false;
+    const mins = parseInt(twInput.value, 10);
+    if (!mins || mins < 1) { twInput.value = 15; return; }
+
+    const ms  = mins * 60 * 1000;
+    sleepEnd  = Date.now() + ms;
+    fadingVol = false;
+
+    // Snapshot volumes NOW so cancel always restores to current level
+    STATIONS.forEach(function(id) {
+      const slider = $('vol-' + id);
+      savedVols[id] = slider ? parseFloat(slider.value) : 1;
+    });
+
+    twActionBtn.textContent = T.timer_cancel;
+    twActionBtn.classList.add('cancel');
+    twInput.disabled = true;
+    timerBadge.classList.add('visible');
+    $('timerWidget').classList.add('running');
+    twInfo.innerHTML = T.timer_info;
+
+    function tick() {
+      const rem = sleepEnd - Date.now();
+      twCountdown.textContent = fmtTime(rem);
+
+      if (rem <= 60000 && !fadingVol) {
+        fadingVol = true;
+        twCountdown.classList.add('ending');
+        twInfo.innerHTML = T.timer_fading;
+        startFade(rem);
+      }
+      if (rem <= 0) fireTimer();
+    }
+
+    tick();
+    sleepTickID  = setInterval(tick, 500);
+    sleepTimerID = setTimeout(fireTimer, ms);
+  }
+
+  function startFade(totalMs) {
+    // Snapshot BOTH sliders right now — so switching stations keeps faded level
+    STATIONS.forEach(function(id) {
+      const slider = $('vol-' + id);
+      savedVols[id] = slider ? parseFloat(slider.value) : 1;
+    });
+
+    // Lock sliders — user can't override fade
+    STATIONS.forEach(function(id) {
+      const slider = $('vol-' + id);
+      if (slider) slider.disabled = true;
+    });
+
+    const steps    = 120;
+    const interval = Math.max(200, Math.floor(totalMs / steps));
+
+    fadeInterval = setInterval(function() {
+      let anyAboveZero = false;
+      STATIONS.forEach(function(id) {
+        const audio  = $('audio-' + id);
+        const slider = $('vol-' + id);
+        const saved  = savedVols[id] !== undefined ? savedVols[id] : 1;
+        const step   = saved / steps;
+        const newVol = parseFloat(Math.max(0, audio.volume - step).toFixed(4));
+        audio.volume = newVol;
+        if (slider) slider.value = newVol;
+        if (newVol > 0) anyAboveZero = true;
+      });
+      if (!anyAboveZero) { clearInterval(fadeInterval); fadeInterval = null; }
+    }, interval);
+  }
+
+  function cancelTimer() {
+    clearTimeout(sleepTimerID);
+    clearInterval(sleepTickID);
+    clearInterval(fadeInterval);
+    sleepTimerID = sleepTickID = fadeInterval = null;
+    fadingVol = false;
+    timerFired = false;
+
+    // Restore both audio and sliders to pre-fade values, then unlock
+    STATIONS.forEach(function(id) {
+      const audio  = $('audio-' + id);
+      const slider = $('vol-' + id);
+      const vol    = savedVols[id] !== undefined ? savedVols[id] : 1;
+      audio.volume = vol;
+      if (slider) { slider.value = vol; slider.disabled = false; }
+    });
+
+    twActionBtn.textContent = T.timer_start;
+    twActionBtn.classList.remove('cancel');
+    twInput.disabled = false;
+    twCountdown.textContent = fmtMins(twInput.value);
+    twCountdown.classList.remove('ending');
+    timerBadge.classList.remove('visible');
+    $('timerWidget').classList.remove('running');
+    twInfo.innerHTML = T.timer_info;
+  }
+
+  let timerFired = false;
+
+  function saveCurrentTracks() {
+    // Push whichever track is currently known (not yet logged) to history
+    // pushTrack handles dedup — safe to call anytime
+    if (lastRadTrack  && lastRadTrack.song)  pushTrack('rad',  { song: lastRadTrack.song,  sub: lastRadTrack.dj });
+    if (lastLmoeTrack && lastLmoeTrack.song) pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
+  }
+
+  // Save on any page exit (tab close, browser close, navigation away)
+  // Only fires when truly unloading — NOT when backgrounding (no false positives)
+  window.addEventListener('beforeunload', function() {
+    saveCurrentTracks();
+  });
+
+  function fireTimer() {
+    if (timerFired) return;  // prevent double-fire from tick() + setTimeout
+    timerFired = true;
+    clearTimeout(sleepTimerID);
+    clearInterval(sleepTickID);
+    clearInterval(fadeInterval);
+    sleepTimerID = sleepTickID = fadeInterval = null;
+
+    STATIONS.forEach(function(id) {
+      const a = $('audio-' + id);
+      const slider = $('vol-' + id);
+      if (!a.paused) { a.pause(); setStopped(id); }
+      if (slider) slider.disabled = false;
+    });
+
+    // Save currently playing tracks to history before closing
+    saveCurrentTracks();
+
+    twCountdown.textContent = '0:00';
+    timerBadge.classList.remove('visible');
+
+    setTimeout(function() {
+      try { window.close(); } catch(e) {}
+      setTimeout(function() {
+        try { window.location.replace('about:blank'); } catch(e) {}
+      }, 400);
+    }, 800);
+  }
+
+
+  // ── Track History ──
+  const HISTORY_MAX  = 50;
+  const HIST_KEY_RAD  = 'myradio-hist-rad';
+  const HIST_KEY_LMOE = 'myradio-hist-lmoe';
+  let hwActiveTab = 'rad';
+
+  function loadHist(id) {
+    try { return JSON.parse(localStorage.getItem(id === 'rad' ? HIST_KEY_RAD : HIST_KEY_LMOE) || '[]'); }
+    catch(e) { return []; }
+  }
+  function saveHist(id, arr) {
+    try { localStorage.setItem(id === 'rad' ? HIST_KEY_RAD : HIST_KEY_LMOE, JSON.stringify(arr)); }
+    catch(e) {}
+  }
+
+  function pushTrack(id, entry) {
+    // entry: { song, sub } where sub = DJ name or artist
+    if (!entry.song) return;
+    const hist = loadHist(id);
+    // Don't push duplicate of the very last entry
+    if (hist.length && hist[0].song === entry.song) return;
+    hist.unshift({ song: entry.song, sub: entry.sub || '', ts: Date.now() });
+    if (hist.length > HISTORY_MAX) hist.pop();
+    saveHist(id, hist);
+    // Update badge
+    $('historyBadge').classList.add('visible');
+    if (historyWidget.classList.contains('open') && hwActiveTab === id) renderHistory();
+  }
+
+  function fmtAgo(ts) {
+    const d = Math.floor((Date.now() - ts) / 1000);
+    if (d < 60)  return T.ago_just;
+    if (d < 3600) return Math.floor(d/60) + ' ' + T.ago_min;
+    if (d < 86400) return Math.floor(d/3600) + ' ' + T.ago_hour;
+    return Math.floor(d/86400) + ' ' + T.ago_day;
+  }
+
+  function renderHistory() {
+    const list = $('hwList');
+    const hist = loadHist(hwActiveTab);
+    if (!hist.length) {
+      list.innerHTML = '<div class="hw-empty">' + T.history_empty + '</div>';
+      return;
+    }
+    list.innerHTML = hist.map(function(h, i) {
+      var tab = hwActiveTab;
+      return '<div class="hw-item">' +
+        '<div class="hw-item-top">' +
+          '<span class="hw-song">' + escHtml(h.song) + '</span>' +
+          '<button class="hw-copy" onclick="hwCopy(this,' + i + ',\'' + tab + '\')" title="Salin">&#x2398;</button>' +
+        '</div>' +
+        '<div class="hw-meta">' +
+          '<span>' + escHtml(h.sub || '') + '</span>' +
+          '<span>' + fmtAgo(h.ts) + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function hwCopy(btn, idx, id) {
+    const hist = loadHist(id);
+    const h = hist[idx];
+    if (!h) return;
+    // Use id param (not hwActiveTab) — correct even if tab was just switched
+    const text = id === 'rad' ? h.song : (h.song + (h.sub ? ' - ' + h.sub : ''));
+    function ok() {
+      btn.textContent = '✓'; btn.classList.add('copied');
+      setTimeout(function() { btn.innerHTML = '&#x2398;'; btn.classList.remove('copied'); }, 1800);
+    }
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok).catch(function() {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); ok();
+    });
+    else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); ok();
+    }
+  }
+
+  function switchHistoryTab(id) {
+    hwActiveTab = id;
+    $('hw-tab-rad').classList.toggle('active', id === 'rad');
+    $('hw-tab-lmoe').classList.toggle('active', id === 'lmoe');
+    renderHistory();
+  }
+
+  function clearHistory() {
+    saveHist(hwActiveTab, []);
+    renderHistory();
+  }
+
+  var historyWidget  = $('historyWidget');
+  var historyOverlay = $('historyOverlay');
+
+  function openHistoryWidget() {
+    renderHistory();
+    historyWidget.classList.add('open');
+    historyOverlay.classList.add('open');
+  }
+  function closeHistoryWidget() {
+    historyWidget.classList.remove('open');
+    historyOverlay.classList.remove('open');
+  }
+
+  // ── Offline UI ──
+  const offlineScreen = document.getElementById('offlineScreen');
+
+  function checkOnline() {
+    if (!navigator.onLine) {
+      offlineScreen.classList.add('show');
+    } else {
+      offlineScreen.classList.remove('show');
+    }
+  }
+  checkOnline();
+  window.addEventListener('offline', checkOnline);
+  window.addEventListener('online',  checkOnline);
+
+  // ── Data Usage Tracker ──
+  // Estimates MB streamed based on time played × assumed bitrate
+  // r/a/dio  ≈ 128 kbps MP3
+  // listen.moe vorbis ≈ 128 kbps, opus ≈ 96 kbps, fallback ≈ 128 kbps
+  const BITRATE_KBPS = 128; // kbps assumed average
+  let totalBytes  = 0;      // bytes streamed this session
+  let trackTimer  = null;
+
+  const dataUsageEl = document.getElementById('dataUsage');
+
+  function fmtBytes(b) {
+    if (b < 1024 * 1024)        return (b / 1024).toFixed(1) + ' KB';
+    if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    return (b / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  }
+
+  function startDataTracking() {
+    if (trackTimer) return;
+    trackTimer = setInterval(function() {
+      const anyPlaying = STATIONS.some(id => !$('audio-' + id).paused);
+      if (anyPlaying) {
+        // bytes per 100ms tick = (bitrate_kbps * 1000 / 8) * 0.1
+        totalBytes += (BITRATE_KBPS * 1000 / 8) * 0.1;
+        dataUsageEl.textContent = fmtBytes(totalBytes);
+      }
+    }, 100);
+  }
+  startDataTracking();
+
+
+  if (loadHist('rad').length || loadHist('lmoe').length) {
+    $('historyBadge').classList.add('visible');
+  }
+
+</script>
+</body>
+</html>
