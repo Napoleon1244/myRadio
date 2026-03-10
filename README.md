@@ -4,8 +4,9 @@ Web radio player untuk [r/a/dio](https://r-a-d.io/) dan [listen.moe](https://lis
 
 **→ [napoleon1244.github.io/myRadio](https://napoleon1244.github.io/myRadio/)**
 
+**Fitur**
 ---
-
 Dual player side by side, now playing realtime, dark/light mode, sleep timer dengan volume fade otomatis, serta last played history.
 
-Dibuat untuk Personal Use dengan LLMs.
+---
+*Dibuat untuk Personal Use dengan LLMs.*
