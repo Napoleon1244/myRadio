@@ -2,20 +2,18 @@
 <html lang="id" id="htmlRoot" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#6b4fa0" id="themeColorMeta">
-  <!-- PWA notification bar color - light and dark -->
-  <meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#141210" media="(prefers-color-scheme: dark)">
   <meta name="description" content="R/a/dio dan Listen.moe">
   <meta name="apple-mobile-web-app-title" content="myRadio">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <title>myRadio</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://relay0.r-a-d.io">
   <link rel="dns-prefetch" href="https://relay1.r-a-d.io">
   <link rel="dns-prefetch" href="https://relay2.r-a-d.io">
@@ -692,7 +690,7 @@
   <!-- ASCII Art: full width -->
   <div class="ascii-wrap">
     <img class="ascii-img" id="asciiImg"
-      src="https://i.ibb.co.com/p6Z6GqB2/ascii-art.png" alt="ascii art">
+      src="https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png" alt="ascii art">
   </div>
 
   <!-- Info panel: side by side -->
@@ -831,7 +829,7 @@
           <div style="width:24px;height:24px;border-radius:50%;border:2px solid var(--smoke);border-top-color:var(--violet);animation:spin 0.8s linear infinite"></div>
           <span class="ww-loading-text" id="wwLoadingText"></span>
         </div>
-        <iframe class="ww-iframe" id="wwIframe" title="Web View" src="about:blank"></iframe>
+        <iframe class="ww-iframe" id="wwIframe" title="Web View" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
       </div>
     </div>
   </div>
@@ -845,9 +843,9 @@
   <div class="tw-dur-row">
     <span class="tw-dur-label" data-i18n="timer_dur">Durasi</span>
     <div class="tw-input-wrap">
-      <input class="tw-input" id="twInput" type="number"
-        min="1" max="99999999" value="15" inputmode="numeric"
-        oninput="if(this.value.length>8)this.value=this.value.slice(0,8);updateStandby()"
+    <input class="tw-input" id="twInput" type="text" inputmode="numeric"
+        value="15"
+        oninput="let r=this.value.replace(/[^0-9]/g,'');if(r.length>7)r=r.slice(0,7);this.value=r;updateStandby();"
         onkeydown="if(event.key==='Enter'){startTimer();closeTimerWidget();}"
       >
       <span class="tw-unit" data-i18n="timer_unit">menit</span>
@@ -917,8 +915,8 @@
   setTimeout(hideSplash, 1500);
 
   // ── Constants ──
-  const ASCII_LIGHT = 'https://i.ibb.co.com/p6Z6GqB2/ascii-art.png';
-  const ASCII_DARK  = 'https://i.ibb.co.com/FbCYM72m/image.png';
+  const ASCII_LIGHT = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png';
+  const ASCII_DARK  = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/image%20(1).png';
 
   // Preload both images into browser cache immediately
   // so switching theme is instant after first load (no re-request)
@@ -928,7 +926,7 @@
       img.src = url;
     });
   })();
-  const PHOTO_ICON   = 'https://i.ibb.co.com/tMZcssjB/20260303-204321.png';
+  const PHOTO_ICON   = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/20260303-204321.png';
   const RAD_STREAMS  = [
     'https://relay1.r-a-d.io/main.mp3',
     'https://relay0.r-a-d.io/main.mp3',
@@ -1605,7 +1603,7 @@
   function startTimer() {
     timerFired = false;
     const mins = parseInt(twInput.value, 10);
-    if (!mins || mins < 1) { twInput.value = 15; return; }
+    if (!mins || mins < 1) { twInput.value = 15; updateStandby(); return; }
 
     const ms  = mins * 60 * 1000;
     sleepEnd  = Date.now() + ms;
@@ -1712,12 +1710,28 @@
 
   let timerFired = false;
 
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--ink);color:var(--paper);font-size:0.65rem;padding:8px 16px;border-radius:99px;opacity:0;transition:opacity 0.3s ease;white-space:nowrap;pointer-events:none;letter-spacing:0.02em;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(function() {
+      t.style.opacity = '1';
+      setTimeout(function() {
+        t.style.opacity = '0';
+        setTimeout(function() { if (t.parentNode) t.remove(); }, 350);
+      }, 3000);
+    });
+  }
+
 
   // ── Web Widget ──
   const WEB_URLS = {
     rad:  'https://r-a-d.io/',
     lmoe: 'https://listen.moe/'
   };
+
+  let wwHistoryPushed = false;
 
   function openWebWidget(id) {
     const title = id === 'rad' ? T.web_title_rad : T.web_title_lmoe;
@@ -1730,7 +1744,6 @@
     document.getElementById('wwHint').textContent  = T.web_hint;
     document.getElementById('wwDesc').textContent  = desc;
 
-    // Show loading, set iframe src
     loading.classList.remove('hide');
     iframe.src = WEB_URLS[id];
     iframe.onload = function() { loading.classList.add('hide'); };
@@ -1738,9 +1751,9 @@
     overlay.classList.add('open');
     overlay.dataset.station = id;
 
-    // Push a history state so back gesture is intercepted by popstate,
-    // not consumed by the browser (which would cause a blank/white screen).
-    try { history.pushState({ wwOpen: true }, ''); } catch(e) {}
+    if (!wwHistoryPushed) {
+      try { history.pushState({ wwOpen: true }, ''); wwHistoryPushed = true; } catch(e) {}
+    }
   }
 
   function closeWebWidget(e) {
@@ -1753,25 +1766,22 @@
       iframe.src = 'about:blank';
       document.getElementById('wwLoading').classList.remove('hide');
     }, 220);
-    // Consume the guard state we pushed on open — keeps history stack clean.
-    // Use replaceState (not back()) to avoid triggering another popstate.
-    try { history.replaceState(null, ''); } catch(e) {}
+    if (wwHistoryPushed) {
+      wwHistoryPushed = false;
+      try { history.back(); } catch(e) {}
+    }
   }
 
-  // Back gesture / button guard — only intercepts when web widget is open.
-  // Re-pushes state so consecutive back gestures keep staying on the page.
   window.addEventListener('popstate', function(e) {
     const overlay = document.getElementById('wwOverlay');
     if (overlay && overlay.classList.contains('open')) {
-      // Close the widget (pass no event so the overlay-target guard is bypassed)
       overlay.classList.remove('open');
       const iframe = document.getElementById('wwIframe');
       setTimeout(function() {
         iframe.src = 'about:blank';
         document.getElementById('wwLoading').classList.remove('hide');
       }, 220);
-      // Re-push so the NEXT back gesture doesn't escape to the browser
-      try { history.pushState(null, ''); } catch(e) {}
+      wwHistoryPushed = false;
     }
   });
 
@@ -1810,6 +1820,8 @@
     timerBadge.classList.remove('visible');
 
     try { window.close(); } catch(e) {}
+    // window.close() tidak bisa menutup standalone PWA di Android — tampilkan notif
+    showToast(LANG === 'id' ? '⏰ Timer habis — audio dihentikan' : '⏰ Timer ended — audio stopped');
     // window.close() likely blocked on Android — reset UI fully
     // so user can restart the timer without corrupt state
     setTimeout(function() {
@@ -1922,13 +1934,13 @@
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(ok).catch(function() {
-      var ta = document.createElement('textarea');
+      const ta = document.createElement('textarea');
       ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
       document.body.appendChild(ta); ta.focus(); ta.select();
       document.execCommand('copy'); document.body.removeChild(ta); ok();
     });
     } else {
-      var ta = document.createElement('textarea');
+      const ta = document.createElement('textarea');
       ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
       document.body.appendChild(ta); ta.focus(); ta.select();
       document.execCommand('copy'); document.body.removeChild(ta); ok();
@@ -1947,8 +1959,8 @@
     renderHistory();
   }
 
-  var historyWidget  = $('historyWidget');
-  var historyOverlay = $('historyOverlay');
+  const historyWidget  = $('historyWidget');
+  const historyOverlay = $('historyOverlay');
 
   function openHistoryWidget() {
     renderHistory();
@@ -1999,18 +2011,17 @@
   function startDataTracking() {
     if (trackTimer) return;
     trackTimer = setInterval(function() {
-      // Count per station at their own bitrate, only when genuinely playing
       var added = 0;
       STATIONS.forEach(function(id) {
         if (isActuallyPlaying[id]) {
-          added += (BITRATE_KBPS[id] * 1000 / 8) * 0.1;
+          added += (BITRATE_KBPS[id] * 1000 / 8) * 1;
         }
       });
       if (added > 0) {
         totalBytes += added;
         dataUsageEl.textContent = fmtBytes(totalBytes);
       }
-    }, 100);
+    }, 1000);
   }
   startDataTracking();
 

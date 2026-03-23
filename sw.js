@@ -1,15 +1,16 @@
-const CACHE_NAME = 'myradio-v18';
+const CACHE_NAME = 'myradio-v19';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './icon.svg',
   './icon-192.png',
   './icon-512.png',
   './icon-192-maskable.png',
   './icon-512-maskable.png',
   // ASCII art cached for offline
-  'https://i.ibb.co.com/p6Z6GqB2/ascii-art.png',
-  'https://i.ibb.co.com/FbCYM72m/image.png'
+  'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png',
+  'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/image%20(1).png'
 ];
 
 self.addEventListener('install', e => {
