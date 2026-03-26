@@ -1063,7 +1063,7 @@
       web_loading:    'memuat…',
       session_label:  'sesi',
       timer_ended_title: 'Timer Selesai',
-      timer_ended_sub: 'Audio telah dihentikan. Sayangnya PWA tidak bisa menutup dirinya sendiri — silakan tutup tab/app secara manual jika sudah selesai.',
+      timer_ended_sub: 'Semua audio telah dihentikan dan volume dikembalikan ke 100%. myRadio tidak bisa menutup dirinya sendiri karena keterbatasan PWA — silakan tutup tab atau app secara manual jika sudah selesai.',
       timer_ended_btn: 'Tutup Notifikasi',
     },
     en: {
@@ -1109,7 +1109,7 @@
       web_loading:    'loading…',
       session_label:  'session',
       timer_ended_title: 'Timer Ended',
-      timer_ended_sub: 'Audio has been stopped. Unfortunately PWAs cannot close themselves — please close the tab/app manually when you\'re done.',
+      timer_ended_sub: 'All audio stopped and volume restored to 100%. myRadio can\'t close itself due to PWA limitations — close the tab or app manually when you\'re done.',
       timer_ended_btn: 'Dismiss',
     }
   };
@@ -1899,10 +1899,16 @@
       const a = $('audio-' + id);
       const slider = $('vol-' + id);
       if (!a.paused) { a.pause(); setStopped(id); }
-      if (slider) { slider.disabled = false; }
+      // Restore to full volume — timer ending is a clean slate
+      a.volume = 1;
+      if (slider) { slider.value = 1; slider.disabled = false; }
       const icon = $('volicon-' + id);
-      if (icon) icon.textContent = getVolIcon(slider ? slider.value : 1);
+      if (icon) icon.textContent = getVolIcon(1);
     });
+
+    sleepEnd  = 0;
+    fadingVol = false;
+    savedVols = {};
 
     // Save currently playing tracks to history before closing
     saveCurrentTracks();
@@ -1910,7 +1916,7 @@
     twCountdown.textContent = '0:00';
     timerBadge.classList.remove('visible');
 
-    // Reset timer UI
+    // Reset timer UI fully — ready for next use
     twActionBtn.textContent = T.timer_start;
     twActionBtn.classList.remove('cancel');
     twInput.disabled = false;
@@ -1920,7 +1926,6 @@
     $('timerWidget').classList.remove('open');
     $('timerOverlay').classList.remove('open');
     twInfo.innerHTML = T.timer_info;
-    fadingVol = false;
 
     // Show session end screen — explain PWA limitation
     const dur = fmtSessionTime(sessionSeconds);
@@ -2146,6 +2151,20 @@
   // ── Session End Screen dismiss ──
   document.getElementById('seBtn').addEventListener('click', function() {
     $('sessionEndScreen').classList.remove('show');
+    // Belt-and-suspenders: guarantee clean state regardless of fireTimer timing
+    timerFired = false;
+    fadingVol  = false;
+    savedVols  = {};
+    sleepEnd   = 0;
+    // Make absolutely sure all sliders are at 100% and unlocked
+    STATIONS.forEach(function(id) {
+      const audio  = $('audio-' + id);
+      const slider = $('vol-' + id);
+      audio.volume = 1;
+      if (slider) { slider.value = 1; slider.disabled = false; }
+      const icon = $('volicon-' + id);
+      if (icon) icon.textContent = getVolIcon(1);
+    });
   });
 
 
