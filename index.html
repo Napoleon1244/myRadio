@@ -578,7 +578,55 @@
     }
     .tw-info em { color:var(--violet); font-style:normal; }
 
-    /* ── Install Banner ── */
+    .footer-session {
+      font-style: normal; font-family: var(--font-sans);
+      font-size: 0.52rem; font-weight: 400;
+      color: var(--dim); opacity: 0.7; white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Session End Screen ── */
+    #sessionEndScreen {
+      display: none; position: fixed; inset: 0; z-index: 9995;
+      background: rgba(0,0,0,0.72);
+      align-items: center; justify-content: center;
+      padding: 28px;
+    }
+    #sessionEndScreen.show { display: flex; }
+    .se-card {
+      background: var(--paper); border: 1px solid var(--smoke);
+      border-radius: 20px; padding: 28px 24px 22px;
+      max-width: 320px; width: 100%;
+      display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: seIn 0.25s ease both;
+    }
+    @keyframes seIn {
+      from { opacity:0; transform:scale(0.93) translateY(12px); }
+      to   { opacity:1; transform:none; }
+    }
+    .se-icon { font-size: 2.4rem; text-align: center; line-height: 1; }
+    .se-title {
+      font-family: var(--font-serif); font-size: 1.25rem;
+      font-weight: 400; color: var(--ink); text-align: center;
+      letter-spacing: -0.02em; line-height: 1.2;
+    }
+    .se-body {
+      font-size: 0.65rem; color: var(--dim); text-align: center;
+      line-height: 1.65; letter-spacing: 0.01em;
+    }
+    .se-note {
+      font-size: 0.58rem; color: var(--violet); text-align: center;
+      line-height: 1.55; background: var(--violet-pale);
+      border-radius: 10px; padding: 9px 12px;
+    }
+    .se-btn {
+      width: 100%; padding: 11px; border: none; border-radius: 12px;
+      font-family: var(--font-sans); font-size: 0.68rem; font-weight: 500;
+      letter-spacing: 0.04em; background: var(--ink); color: var(--paper);
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+    }
+    .se-btn:active { transform: scale(0.96); opacity: 0.85; }
     .install-banner {
       display: none;
       position: fixed; bottom: 16px; left: 14px; right: 14px; z-index: 9998;
@@ -742,7 +790,7 @@
           <svg id="icon-rad" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
         <div class="volume-wrap">
-          <span class="vol-icon">🔈</span>
+          <span class="vol-icon" id="volicon-rad">🔊</span>
           <input type="range" min="0" max="1" step="0.01" value="1" id="vol-rad" oninput="setVolume('rad',this.value)">
         </div>
       </div>
@@ -764,7 +812,7 @@
           <svg id="icon-lmoe" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
         <div class="volume-wrap">
-          <span class="vol-icon">🔈</span>
+          <span class="vol-icon" id="volicon-lmoe">🔊</span>
           <input type="range" min="0" max="1" step="0.01" value="1" id="vol-lmoe" oninput="setVolume('lmoe',this.value)">
         </div>
       </div>
@@ -775,7 +823,11 @@
 
   <footer class="footer">
     <span class="footer-left" data-i18n="footer">📻 myRadio · Made with love for Personal Use</span>
-    <span class="footer-data" id="dataUsage">0 KB</span>
+    <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+      <span class="footer-session" id="sessionTime">0:00</span>
+      <span style="color:var(--smoke);font-size:0.45rem;">|</span>
+      <span class="footer-data" id="dataUsage">0 KB</span>
+    </span>
   </footer>
 </div>
 
@@ -823,6 +875,7 @@
           <span class="ww-hint" id="wwHint"></span>
         </div>
         <p class="ww-desc" id="wwDesc"></p>
+        <button class="hw-close" onclick="closeWebWidget({target:document.getElementById('wwOverlay')})" aria-label="Tutup" style="flex-shrink:0;margin-left:10px;">✕</button>
       </div>
       <div class="ww-frame-wrap">
         <div class="ww-loading" id="wwLoading">
@@ -854,6 +907,17 @@
   <div class="tw-countdown" id="twCountdown"></div>
   <button class="tw-action" id="twActionBtn" onclick="toggleTimer()" data-i18n="timer_start">Mulai Timer</button>
   <p class="tw-info" id="twInfo"></p>
+</div>
+
+<!-- Session End Screen -->
+<div id="sessionEndScreen">
+  <div class="se-card">
+    <div class="se-icon">⏰</div>
+    <div class="se-title" id="seTitle">Timer Selesai</div>
+    <div class="se-body" id="seBody">Audio telah dihentikan.</div>
+    <div class="se-note" id="seNote"></div>
+    <button class="se-btn" id="seBtn">Tutup Notifikasi</button>
+  </div>
 </div>
 
 <!-- Install Banner (outside .app, fixed position) -->
@@ -980,6 +1044,7 @@
       history_aria:  'Riwayat lagu',
       theme_aria:    'Toggle tema',
       status_ready:  'siap',
+      status_live:   'siaran ●',
       status_failed: 'gagal',
       status_all_failed: 'semua gagal',
       status_buf:    'buffering…',
@@ -996,6 +1061,10 @@
       web_desc_lmoe:  'Radio streaming 24/7 yang menyiarkan musik J-Pop, K-Pop, dan lagu-lagu anime.',
       web_hint:       'Ketuk di luar untuk menutup',
       web_loading:    'memuat…',
+      session_label:  'sesi',
+      timer_ended_title: 'Timer Selesai',
+      timer_ended_sub: 'Audio telah dihentikan. Sayangnya PWA tidak bisa menutup dirinya sendiri — silakan tutup tab/app secara manual jika sudah selesai.',
+      timer_ended_btn: 'Tutup Notifikasi',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1021,6 +1090,7 @@
       history_aria:  'Song history',
       theme_aria:    'Toggle theme',
       status_ready:  'ready',
+      status_live:   'live ●',
       status_failed: 'failed',
       status_all_failed: 'all failed',
       status_buf:    'buffering…',
@@ -1037,6 +1107,10 @@
       web_desc_lmoe:  '24/7 streaming radio broadcasting J-Pop, K-Pop, and anime songs.',
       web_hint:       'Tap outside to close',
       web_loading:    'loading…',
+      session_label:  'session',
+      timer_ended_title: 'Timer Ended',
+      timer_ended_sub: 'Audio has been stopped. Unfortunately PWAs cannot close themselves — please close the tab/app manually when you\'re done.',
+      timer_ended_btn: 'Dismiss',
     }
   };
 
@@ -1352,7 +1426,7 @@
     $('btn-'    + id).classList.add('playing');
     $('dot-'    + id).classList.add('live');
     $('dot-'    + id).classList.remove('error');
-    $('status-' + id).textContent = 'live ●';
+    $('status-' + id).textContent = T.status_live;
     $('card-'   + id).classList.add('playing');
     $('info-card-' + id).classList.add('active');
   }
@@ -1404,7 +1478,18 @@
     const streams = id === 'rad' ? RAD_STREAMS : LMOE_STREAMS;
     tryStream(id, streams, 0);
   }
-  function setVolume(id, val) { $('audio-' + id).volume = parseFloat(val); }
+  function getVolIcon(val) {
+    const v = parseFloat(val);
+    if (v === 0)   return '🔇';
+    if (v < 0.35)  return '🔈';
+    if (v < 0.7)   return '🔉';
+    return '🔊';
+  }
+  function setVolume(id, val) {
+    $('audio-' + id).volume = parseFloat(val);
+    const icon = $('volicon-' + id);
+    if (icon) icon.textContent = getVolIcon(val);
+  }
 
   function switchToStation(id) {
     stopOthers(id);
@@ -1436,8 +1521,8 @@
       artist,
       album,
       artwork: [
-        { src: PHOTO_ICON, sizes: '512x512', type: 'image/jpeg' },
-        { src: PHOTO_ICON, sizes: '192x192', type: 'image/jpeg' }
+        { src: PHOTO_ICON, sizes: '512x512', type: 'image/png' },
+        { src: PHOTO_ICON, sizes: '192x192', type: 'image/png' }
       ]
     });
 
@@ -1574,7 +1659,7 @@
   const twInfo       = $('twInfo');
   const timerBadge   = $('timerBadge');
 
-  function openTimerWidget()  { $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
+  function openTimerWidget()  { closeHistoryWidget(); $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
   function closeTimerWidget() { $('timerWidget').classList.remove('open'); $('timerOverlay').classList.remove('open'); }
 
   function fmtTime(ms) {
@@ -1670,6 +1755,8 @@
         const newVol = parseFloat(Math.max(0, audio.volume - step).toFixed(4));
         audio.volume = newVol;
         if (slider) slider.value = newVol;
+        const icon = $('volicon-' + id);
+        if (icon) icon.textContent = getVolIcon(newVol);
         if (newVol > 0) anyAboveZero = true;
       });
       if (!anyAboveZero) {
@@ -1696,6 +1783,8 @@
       const vol    = savedVols[id] !== undefined ? savedVols[id] : 1;
       audio.volume = vol;
       if (slider) { slider.value = vol; slider.disabled = false; }
+      const icon = $('volicon-' + id);
+      if (icon) icon.textContent = getVolIcon(vol);
     });
 
     twActionBtn.textContent = T.timer_start;
@@ -1810,7 +1899,9 @@
       const a = $('audio-' + id);
       const slider = $('vol-' + id);
       if (!a.paused) { a.pause(); setStopped(id); }
-      if (slider) slider.disabled = false;
+      if (slider) { slider.disabled = false; }
+      const icon = $('volicon-' + id);
+      if (icon) icon.textContent = getVolIcon(slider ? slider.value : 1);
     });
 
     // Save currently playing tracks to history before closing
@@ -1819,22 +1910,29 @@
     twCountdown.textContent = '0:00';
     timerBadge.classList.remove('visible');
 
-    try { window.close(); } catch(e) {}
-    // window.close() tidak bisa menutup standalone PWA di Android — tampilkan notif
-    showToast(LANG === 'id' ? '⏰ Timer habis — audio dihentikan' : '⏰ Timer ended — audio stopped');
-    // window.close() likely blocked on Android — reset UI fully
-    // so user can restart the timer without corrupt state
-    setTimeout(function() {
-      twActionBtn.textContent = T.timer_start;
-      twActionBtn.classList.remove('cancel');
-      twInput.disabled = false;
-      twCountdown.textContent = fmtMins(twInput.value);
-      twCountdown.classList.remove('ending');
-      $('timerWidget').classList.remove('running');
-      twInfo.innerHTML = T.timer_info;
-      fadingVol = false;
-      timerFired = false;
-    }, 400);
+    // Reset timer UI
+    twActionBtn.textContent = T.timer_start;
+    twActionBtn.classList.remove('cancel');
+    twInput.disabled = false;
+    twCountdown.textContent = fmtMins(twInput.value);
+    twCountdown.classList.remove('ending');
+    $('timerWidget').classList.remove('running');
+    $('timerWidget').classList.remove('open');
+    $('timerOverlay').classList.remove('open');
+    twInfo.innerHTML = T.timer_info;
+    fadingVol = false;
+
+    // Show session end screen — explain PWA limitation
+    const dur = fmtSessionTime(sessionSeconds);
+    $('seTitle').textContent    = T.timer_ended_title;
+    $('seBody').textContent     = T.timer_ended_sub;
+    $('seNote').innerHTML       = (LANG === 'id'
+      ? 'Sesi ini berdurasi <strong>' + dur + '</strong> dengan pemakaian data <strong>' + fmtBytes(totalBytes) + '</strong>.'
+      : 'Session duration: <strong>' + dur + '</strong> — data used: <strong>' + fmtBytes(totalBytes) + '</strong>.');
+    $('seBtn').textContent      = T.timer_ended_btn;
+    $('sessionEndScreen').classList.add('show');
+
+    setTimeout(function() { timerFired = false; }, 400);
   }
 
 
@@ -1934,16 +2032,18 @@
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(ok).catch(function() {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
-      document.body.appendChild(ta); ta.focus(); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta); ok();
-    });
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); ok(); } catch(e) {}
+        document.body.removeChild(ta);
+      });
     } else {
       const ta = document.createElement('textarea');
       ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
       document.body.appendChild(ta); ta.focus(); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta); ok();
+      try { document.execCommand('copy'); ok(); } catch(e) {}
+      document.body.removeChild(ta);
     }
   }
 
@@ -1963,6 +2063,7 @@
   const historyOverlay = $('historyOverlay');
 
   function openHistoryWidget() {
+    closeTimerWidget();
     renderHistory();
     historyWidget.classList.add('open');
     historyOverlay.classList.add('open');
@@ -2024,6 +2125,28 @@
     }, 1000);
   }
   startDataTracking();
+
+  // ── Session Timer ──
+  let sessionSeconds = 0;
+  const sessionTimeEl = document.getElementById('sessionTime');
+
+  function fmtSessionTime(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  setInterval(function() {
+    sessionSeconds++;
+    if (sessionTimeEl) sessionTimeEl.textContent = fmtSessionTime(sessionSeconds);
+  }, 1000);
+
+  // ── Session End Screen dismiss ──
+  document.getElementById('seBtn').addEventListener('click', function() {
+    $('sessionEndScreen').classList.remove('show');
+  });
 
 
   if (loadHist('rad').length || loadHist('lmoe').length) {

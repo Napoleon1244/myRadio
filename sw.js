@@ -44,7 +44,8 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
   // Never intercept audio streams / API calls
   if (url.includes('r-a-d.io') || url.includes('listen.moe') ||
-      url.includes('relay')    || url.includes('fonts.g')) return;
+      url.includes('relay')    ||
+      url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com')) return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {
