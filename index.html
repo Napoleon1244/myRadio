@@ -1196,7 +1196,7 @@
       lfm_auth_fail:     'Gagal terhubung ke Last.fm',
       lfm_dual_label:    'Scrobble Ganda',
       lfm_dual_info:     'Catat lagu dari kedua stasiun sekaligus — cocok kalau kamu suka pindah-pindah antara r/a/dio dan listen.moe.',
-      lfm_connected_info: 'Lagu akan dicatat setelah didengar ≥ 30 detik.',
+      lfm_connected_info: 'Tracking dimulai saat kamu menekan play. Lagu tercatat ke Last.fm setelah didengar ≥ 30 detik — kalau pindah stasiun sebelum 30 detik, lagu lama langsung di-submit.',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1261,7 +1261,7 @@
       lfm_auth_fail:     'Failed to connect to Last.fm',
       lfm_dual_label:    'Dual Scrobble',
       lfm_dual_info:     'Track songs from both stations simultaneously — great if you switch between r/a/dio and listen.moe.',
-      lfm_connected_info: 'Songs are scrobbled after ≥ 30 seconds of listening.',
+      lfm_connected_info: 'Tracking starts the moment you press play. Songs are submitted to Last.fm after ≥ 30 seconds — if you switch stations before 30s, the previous song is submitted immediately.',
     }
   };
 
@@ -1580,7 +1580,15 @@
     STATIONS.forEach(o => {
       if (o === id) return;
       const a = $('audio-' + o);
-      if (!a.paused) { a.pause(); setStopped(o); }
+      if (!a.paused) {
+        // Scrobble whatever was pending for the station being stopped — user switched away
+        if (typeof lfm !== 'undefined' && lfm.sessionKey) {
+          if (lfm.scrobbleTimers[o]) { clearTimeout(lfm.scrobbleTimers[o]); lfm.scrobbleTimers[o] = null; }
+          const p = lfm.pendingTrack[o];
+          if (p) { lfmScrobble(p.track, p.artist, p.ts); lfm.pendingTrack[o] = null; }
+        }
+        a.pause(); setStopped(o);
+      }
     });
   }
   function setPlaying(id) {
@@ -1775,6 +1783,12 @@
       updateMediaSession(id);
       if ('mediaSession' in navigator)
         navigator.mediaSession.playbackState = 'playing';
+      // Fire LFM immediately when audio starts — don't wait for next song change
+      if (typeof lfm !== 'undefined' && lfm.sessionKey) {
+        const np = nowPlaying[id];
+        const track  = id === 'rad' ? lfmParseRad(np.song) : { track: np.song || '', artist: np.artist || '' };
+        if (track.track) lfmOnTrackChange(id, track.track, track.artist || '');
+      }
     });
 
     audio.addEventListener('pause', () => {
@@ -2421,14 +2435,11 @@
   var LFM_SK_KEY     = 'myradio-lfm-sk';
   var LFM_USER_KEY   = 'myradio-lfm-user';
 
-  var LFM_DUAL_KEY   = 'myradio-lfm-dual';
-
   var lfm = {
     sessionKey:     localStorage.getItem(LFM_SK_KEY)   || null,
     username:       localStorage.getItem(LFM_USER_KEY) || null,
     pendingToken:   null,
     scrobbleCount:  0,
-    dualScrobble:   localStorage.getItem(LFM_DUAL_KEY) === 'true',
     scrobbleTimers: { rad: null, lmoe: null },
     pendingTrack:   { rad: null, lmoe: null },
     lastNP:         { rad: null, lmoe: null },
@@ -2517,8 +2528,6 @@
   // ── Called on every real track change (from fetchRadAPI and lmoe WS)
   function lfmOnTrackChange(id, newTrack, newArtist) {
     if (!lfm.sessionKey) return;
-    // Dual mode OFF: skip stations not currently playing audio
-    if (!lfm.dualScrobble && $('audio-' + id).paused) return;
 
     // Cancel any pending scrobble for this station
     if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
@@ -2613,21 +2622,11 @@
     var bodyHtml = '';
 
     if (lfm.sessionKey) {
-      var dualChecked = lfm.dualScrobble ? ' checked' : '';
       bodyHtml =
         '<div class="lfm-user">' +
           '<span class="lfm-username">@' + escHtml(lfm.username || '') + '</span>' +
           '<span class="lfm-count">' + lfm.scrobbleCount + ' ' + T.lfm_scrobbles + '</span>' +
         '</div>' +
-        '<div class="sw-row">' +
-          '<div class="sw-row-label">' + T.lfm_dual_label + '</div>' +
-          '<label class="sw-toggle">' +
-            '<input type="checkbox" id="lfmDualToggle"' + dualChecked + ' onchange="lfmSetDual(this.checked)">' +
-            '<span class="sw-track"></span>' +
-            '<span class="sw-thumb"></span>' +
-          '</label>' +
-        '</div>' +
-        '<p class="sw-info">' + T.lfm_dual_info + '</p>' +
         '<p class="sw-info">' + T.lfm_connected_info + '</p>' +
         '<button class="lfm-btn danger" style="margin-top:4px;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
     } else if (lfm.pendingToken) {
@@ -2645,12 +2644,6 @@
     }
 
     el.innerHTML = sectionLabel + headerHtml + bodyHtml;
-  }
-
-  // ── Toggle dual scrobble on/off, persist to localStorage
-  function lfmSetDual(on) {
-    lfm.dualScrobble = on;
-    localStorage.setItem(LFM_DUAL_KEY, on ? 'true' : 'false');
   }
 
   // ── Init: show badge if already connected from previous session
