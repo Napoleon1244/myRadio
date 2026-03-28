@@ -1532,9 +1532,8 @@
           nowPlaying.lmoe.song   = newSong;
           nowPlaying.lmoe.artist = newArtist;
 
-          // Hook into Last.fm scrobbler — compare against prevLmoeSong (before update)
-          // Guards against TRACK_UPDATE_REQUEST on WS reconnect resetting the 30s timer
-          if (newSong && newSong !== prevLmoeSong) {
+          // Hook into Last.fm scrobbler — only if lmoe is actually playing
+          if (newSong && newSong !== prevLmoeSong && !$('audio-lmoe').paused) {
             lfmOnTrackChange('lmoe', newSong, newArtist);
           }
         }
@@ -1783,10 +1782,11 @@
       updateMediaSession(id);
       if ('mediaSession' in navigator)
         navigator.mediaSession.playbackState = 'playing';
-      // Fire LFM immediately when audio starts — don't wait for next song change
-      if (typeof lfm !== 'undefined' && lfm.sessionKey) {
+      // Fire LFM when audio starts — only if no pending track (fresh play, not stall recovery)
+      // On stall/reconnect, the existing 30s timer keeps running — don't reset it
+      if (typeof lfm !== 'undefined' && lfm.sessionKey && !lfm.pendingTrack[id]) {
         const np = nowPlaying[id];
-        const track  = id === 'rad' ? lfmParseRad(np.song) : { track: np.song || '', artist: np.artist || '' };
+        const track = id === 'rad' ? lfmParseRad(np.song) : { track: np.song || '', artist: np.artist || '' };
         if (track.track) lfmOnTrackChange(id, track.track, track.artist || '');
       }
     });
@@ -1794,6 +1794,12 @@
     audio.addEventListener('pause', () => {
       clearStall(); clearWatchdog(); clearReconn();
       setStopped(id);
+      // Clear pending track — if user replays, treat as fresh session
+      if (typeof lfm !== 'undefined') {
+        if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
+        lfm.pendingTrack[id] = null;
+        lfm.lastNP[id] = null;
+      }
       if ('mediaSession' in navigator)
         navigator.mediaSession.playbackState = 'paused';
     });
@@ -2660,7 +2666,8 @@
     var prevSong = nowPlaying.rad.song;
     await _origFetchRadAPI();
     var newSong = nowPlaying.rad.song;
-    if (newSong && newSong !== prevSong) {
+    // Only scrobble if rad is actually playing — don't track background station
+    if (newSong && newSong !== prevSong && !$('audio-rad').paused) {
       var parsed = lfmParseRad(newSong);
       lfmOnTrackChange('rad', parsed.track, parsed.artist);
     }
