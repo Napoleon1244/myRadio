@@ -627,6 +627,85 @@
       cursor: pointer; transition: opacity 0.2s, transform 0.15s;
     }
     .se-btn:active { transform: scale(0.96); opacity: 0.85; }
+
+    /* ── Settings toggle switch ── */
+    .sw-section { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+    .sw-section-label {
+      font-size:0.5rem; font-weight:500; letter-spacing:0.1em;
+      text-transform:uppercase; color:var(--dim); transition:color var(--t);
+    }
+    .sw-row {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:8px;
+    }
+    .sw-row-label { font-size:0.68rem; color:var(--ink); transition:color var(--t); flex:1; }
+    .sw-row-sub { font-size:0.55rem; color:var(--dim); line-height:1.5; transition:color var(--t); }
+    .sw-toggle {
+      position:relative; width:34px; height:20px; flex-shrink:0;
+    }
+    .sw-toggle input {
+      opacity:0; width:100%; height:100%;
+      position:absolute; top:0; left:0;
+      cursor:pointer; margin:0; z-index:1;
+    }
+    .sw-track {
+      position:absolute; inset:0; border-radius:99px;
+      background:var(--smoke); transition:background 0.2s;
+      pointer-events:none;
+    }
+    .sw-thumb {
+      position:absolute; top:3px; left:3px;
+      width:14px; height:14px; border-radius:50%;
+      background:#fff; transition:transform 0.2s, background 0.2s;
+      pointer-events:none; box-shadow:0 1px 3px rgba(0,0,0,0.2);
+    }
+    .sw-toggle input:checked ~ .sw-track { background:var(--violet); }
+    .sw-toggle input:checked ~ .sw-thumb { transform:translateX(14px); }
+    .sw-info {
+      font-size:0.52rem; color:var(--dim); line-height:1.55;
+      letter-spacing:0.01em; transition:color var(--t);
+    }
+
+    /* ── Settings Widget ── */
+    .settings-badge {
+      display:none; position:absolute; top:3px; right:3px;
+      width:7px; height:7px; border-radius:50%;
+      background:var(--violet); border:1.5px solid var(--paper);
+    }
+    .settings-badge.visible { display:block; }
+    .settings-overlay { display:none; position:fixed; inset:0; z-index:8000; }
+    .settings-overlay.open { display:block; }
+    .settings-widget {
+      position:fixed; top:54px; right:14px; z-index:8001;
+      width:260px; background:var(--paper);
+      border:1px solid var(--smoke); border-radius:16px; padding:16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+      display:none; flex-direction:column; gap:14px;
+      transition:background var(--t), border-color var(--t);
+      max-height:80vh; overflow-y:auto;
+    }
+    .settings-widget.open { display:flex; animation:hwIn 0.18s ease both; }
+    .sw-header { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .sw-title { font-family:var(--font-serif); font-size:0.92rem; font-weight:400; color:var(--ink); letter-spacing:-0.01em; }
+    .lfm-section { display:flex; flex-direction:column; gap:10px; }
+    .lfm-header { display:flex; align-items:center; gap:7px; }
+    .lfm-logo { width:18px; height:18px; border-radius:4px; background:#d51007; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .lfm-logo svg { width:11px; height:11px; fill:#fff; }
+    .lfm-label { font-family:var(--font-serif); font-size:0.82rem; font-weight:400; color:var(--ink); letter-spacing:-0.01em; }
+    .lfm-connected-dot { width:6px; height:6px; border-radius:50%; background:var(--green); margin-left:auto; flex-shrink:0; animation:pulse 2s ease infinite; }
+    .lfm-desc { font-size:0.58rem; color:var(--dim); line-height:1.6; letter-spacing:0.01em; }
+    .lfm-user { display:flex; align-items:center; justify-content:space-between; background:var(--mist); border:1px solid var(--smoke); border-radius:9px; padding:7px 10px; transition:background var(--t), border-color var(--t); }
+    .lfm-username { font-size:0.68rem; font-weight:500; color:var(--ink); }
+    .lfm-count { font-size:0.58rem; color:var(--violet); white-space:nowrap; }
+    .lfm-btn { width:100%; padding:8px; border:none; border-radius:10px; cursor:pointer; font-family:var(--font-sans); font-size:0.65rem; font-weight:500; letter-spacing:0.04em; transition:background 0.2s, transform 0.15s, opacity 0.2s; }
+    .lfm-btn:active { transform:scale(0.96); }
+    .lfm-btn.primary { background:var(--ink); color:var(--paper); }
+    .lfm-btn.primary:disabled { opacity:0.45; pointer-events:none; }
+    .lfm-btn.danger { background:transparent; border:1px solid var(--smoke); color:var(--dim); }
+    .lfm-btn.confirm { background:var(--violet); color:#fff; }
+    .lfm-auth-hint { font-size:0.58rem; color:var(--dim); line-height:1.6; background:var(--violet-pale); border-radius:8px; padding:8px 10px; }
+    .lfm-divider { height:1px; background:var(--smoke); opacity:0.5; }
+
     .install-banner {
       display: none;
       position: fixed; bottom: 16px; left: 14px; right: 14px; z-index: 9998;
@@ -728,9 +807,11 @@
         </svg>
         <span class="timer-badge" id="timerBadge"></span>
       </button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle tema"  data-i18n-aria="theme_aria">
-        <span class="icon-light">🌙</span>
-        <span class="icon-dark">☀️</span>
+      <button class="theme-toggle" id="settingsToggleBtn" onclick="openSettingsWidget()" aria-label="Pengaturan" data-i18n-aria="settings_aria" style="position:relative;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span class="settings-badge" id="settingsBadge"></span>
       </button>
     </div>
   </header>
@@ -858,7 +939,7 @@
     <button class="hw-tab active" id="hw-tab-rad" onclick="switchHistoryTab('rad')">r/a/dio</button>
     <button class="hw-tab" id="hw-tab-lmoe" onclick="switchHistoryTab('lmoe')">listen.moe</button>
   </div>
-  <p style="font-size:0.5rem;color:var(--dim);text-align:center;line-height:1.5;letter-spacing:0.01em;flex-shrink:0;">
+  <p class="sw-info" style="flex-shrink:0;text-align:center;">
     <span data-i18n="history_info">Maks. 50 lagu per stasiun. Hanya tercatat saat app aktif — lagu terlama terhapus otomatis saat penuh.</span>
   </p>
   <div class="hw-list" id="hwList"></div>
@@ -907,6 +988,38 @@
   <div class="tw-countdown" id="twCountdown"></div>
   <button class="tw-action" id="twActionBtn" onclick="toggleTimer()" data-i18n="timer_start">Mulai Timer</button>
   <p class="tw-info" id="twInfo"></p>
+</div>
+
+<!-- Settings overlay -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsWidget()"></div>
+
+<!-- Settings widget -->
+<div class="settings-widget" id="settingsWidget">
+  <div class="sw-header">
+    <span class="sw-title" data-i18n="settings_title">Pengaturan</span>
+    <button class="hw-close" onclick="closeSettingsWidget()">✕</button>
+  </div>
+
+  <!-- Tampilan section -->
+  <div class="sw-section">
+    <span class="sw-section-label" data-i18n="settings_section_display">Tampilan</span>
+    <div class="sw-row">
+      <div>
+        <div class="sw-row-label" data-i18n="settings_theme_label">Tema Gelap</div>
+      </div>
+      <label class="sw-toggle">
+        <input type="checkbox" id="themeToggle">
+        <span class="sw-track"></span>
+        <span class="sw-thumb"></span>
+      </label>
+    </div>
+    <p class="sw-info" data-i18n="settings_theme_info">Tampilan gelap lebih nyaman di malam hari — preferensi disimpan otomatis.</p>
+  </div>
+
+  <div class="lfm-divider"></div>
+
+  <!-- Last.fm section — rendered by JS -->
+  <div class="lfm-section" id="lfmSection"></div>
 </div>
 
 <!-- Session End Screen -->
@@ -1065,6 +1178,25 @@
       timer_ended_title: 'Timer Selesai',
       timer_ended_sub: 'Semua audio telah dihentikan dan volume dikembalikan ke 100%. myRadio tidak bisa menutup dirinya sendiri karena keterbatasan PWA — silakan tutup tab atau app secara manual jika sudah selesai.',
       timer_ended_btn: 'Tutup Notifikasi',
+      settings_aria:     'Pengaturan',
+      settings_title:    'Pengaturan',
+      settings_section_display: 'Tampilan',
+      settings_theme_label: 'Tema Gelap',
+      settings_theme_info: 'Preferensi tema disimpan otomatis.',
+      lfm_title:         'Last.fm',
+      lfm_section_label: 'Musik',
+      lfm_desc:          'Catat semua lagu yang kamu dengarkan otomatis ke profilmu di Last.fm.',
+      lfm_connect:       'Hubungkan Last.fm',
+      lfm_connecting:    'Menghubungkan…',
+      lfm_auth_waiting:  'Setujui myRadio di tab Last.fm yang baru terbuka, lalu ketuk tombol di bawah.',
+      lfm_auth_confirm:  'Sudah Disetujui ✓',
+      lfm_disconnect:    'Putuskan Koneksi',
+      lfm_scrobbles:     'scrobble sesi ini',
+      lfm_scrobble_fail: 'Scrobble gagal — coba lagi nanti',
+      lfm_auth_fail:     'Gagal terhubung ke Last.fm',
+      lfm_dual_label:    'Scrobble Ganda',
+      lfm_dual_info:     'Catat lagu dari kedua stasiun sekaligus — cocok kalau kamu suka pindah-pindah antara r/a/dio dan listen.moe.',
+      lfm_connected_info: 'Lagu akan dicatat setelah didengar ≥ 30 detik.',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1111,6 +1243,25 @@
       timer_ended_title: 'Timer Ended',
       timer_ended_sub: 'All audio stopped and volume restored to 100%. myRadio can\'t close itself due to PWA limitations — close the tab or app manually when you\'re done.',
       timer_ended_btn: 'Dismiss',
+      settings_aria:     'Settings',
+      settings_title:    'Settings',
+      settings_section_display: 'Display',
+      settings_theme_label: 'Dark Theme',
+      settings_theme_info: 'Theme preference is saved automatically.',
+      lfm_title:         'Last.fm',
+      lfm_section_label: 'Music',
+      lfm_desc:          'Automatically track every song you listen to on your Last.fm profile.',
+      lfm_connect:       'Connect Last.fm',
+      lfm_connecting:    'Connecting…',
+      lfm_auth_waiting:  'Approve myRadio on the Last.fm tab that just opened, then tap the button below.',
+      lfm_auth_confirm:  'I\'ve Approved ✓',
+      lfm_disconnect:    'Disconnect',
+      lfm_scrobbles:     'scrobbles this session',
+      lfm_scrobble_fail: 'Scrobble failed — try again later',
+      lfm_auth_fail:     'Failed to connect to Last.fm',
+      lfm_dual_label:    'Dual Scrobble',
+      lfm_dual_info:     'Track songs from both stations simultaneously — great if you switch between r/a/dio and listen.moe.',
+      lfm_connected_info: 'Songs are scrobbled after ≥ 30 seconds of listening.',
     }
   };
 
@@ -1159,9 +1310,11 @@
     asciiImg.src = dark ? ASCII_DARK : ASCII_LIGHT;
     themeColorMeta.setAttribute('content', dark ? '#141210' : '#6b4fa0');
     localStorage.setItem('myradio-theme', dark ? 'dark' : 'light');
+    // Keep settings checkbox in sync
+    if (toggleBtn) toggleBtn.checked = dark;
   }
   applyTheme(isDark);
-  toggleBtn.addEventListener('click', () => applyTheme(!isDark));
+  if (toggleBtn) toggleBtn.addEventListener('change', () => applyTheme(toggleBtn.checked));
 
   // ── Service Worker ──
   if ('serviceWorker' in navigator) {
@@ -1364,6 +1517,9 @@
             ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
             : '';
 
+          // Capture prev song BEFORE updating lastLmoeTrack — used by LFM hook below
+          var prevLmoeSong = lastLmoeTrack ? lastLmoeTrack.song : null;
+
           // Lagu berganti → catat lagu LAMA ke history
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
@@ -1375,6 +1531,12 @@
 
           nowPlaying.lmoe.song   = newSong;
           nowPlaying.lmoe.artist = newArtist;
+
+          // Hook into Last.fm scrobbler — compare against prevLmoeSong (before update)
+          // Guards against TRACK_UPDATE_REQUEST on WS reconnect resetting the 30s timer
+          if (newSong && newSong !== prevLmoeSong) {
+            lfmOnTrackChange('lmoe', newSong, newArtist);
+          }
         }
         if (data.d && data.d.listeners !== undefined) nowPlaying.lmoe.listeners = data.d.listeners;
         updateLmoeUI();
@@ -1500,6 +1662,14 @@
   }
 
   // ── Media Session ──
+  function clearMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = 'none';
+    try { navigator.mediaSession.metadata = null; } catch(e) {}
+    ['play','pause','stop','nexttrack','previoustrack'].forEach(function(a) {
+      try { navigator.mediaSession.setActionHandler(a, null); } catch(e) {}
+    });
+  }
   function updateMediaSession(id) {
     if (!('mediaSession' in navigator)) return;
 
@@ -1659,7 +1829,7 @@
   const twInfo       = $('twInfo');
   const timerBadge   = $('timerBadge');
 
-  function openTimerWidget()  { closeHistoryWidget(); $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
+  function openTimerWidget()  { closeHistoryWidget(); closeSettingsWidget(); $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
   function closeTimerWidget() { $('timerWidget').classList.remove('open'); $('timerOverlay').classList.remove('open'); }
 
   function fmtTime(ms) {
@@ -1906,12 +2076,27 @@
       if (icon) icon.textContent = getVolIcon(1);
     });
 
+    // Cancel any pending LFM scrobbles — audio was stopped deliberately, don't scrobble
+    if (typeof lfm !== 'undefined') {
+      STATIONS.forEach(function(id) {
+        if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
+        lfm.pendingTrack[id] = null;
+      });
+    }
+
+    // Kill MediaSession entirely — not pause, fully gone from notification bar
+    clearMediaSession();
+
     sleepEnd  = 0;
     fadingVol = false;
     savedVols = {};
 
     // Save currently playing tracks to history before closing
     saveCurrentTracks();
+    // Explicitly clear session keys — tracks already committed to persistent history above.
+    // Prevents rescueSession() on next launch from attempting (harmless but redundant) re-push.
+    try { localStorage.removeItem('myradio-session-rad');  } catch(e) {}
+    try { localStorage.removeItem('myradio-session-lmoe'); } catch(e) {}
 
     twCountdown.textContent = '0:00';
     timerBadge.classList.remove('visible');
@@ -2069,6 +2254,7 @@
 
   function openHistoryWidget() {
     closeTimerWidget();
+    closeSettingsWidget();
     renderHistory();
     historyWidget.classList.add('open');
     historyOverlay.classList.add('open');
@@ -2171,6 +2357,323 @@
   if (loadHist('rad').length || loadHist('lmoe').length) {
     $('historyBadge').classList.add('visible');
   }
+
+  // ══════════════════════════════════════════════════════
+  // ── Settings Widget ──
+  // ══════════════════════════════════════════════════════
+  function openSettingsWidget() {
+    closeTimerWidget(); closeHistoryWidget();
+    lfmRenderSection();
+    $('settingsWidget').classList.add('open');
+    $('settingsOverlay').classList.add('open');
+  }
+  function closeSettingsWidget() {
+    $('settingsWidget').classList.remove('open');
+    $('settingsOverlay').classList.remove('open');
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ── MD5 (public domain — needed for Last.fm api_sig) ──
+  // ══════════════════════════════════════════════════════
+  function md5(str) {
+    function safeAdd(x, y) { var l=(x&0xffff)+(y&0xffff); return (((x>>16)+(y>>16)+(l>>16))<<16)|(l&0xffff); }
+    function rol(n,c) { return (n<<c)|(n>>>(32-c)); }
+    function cmn(q,a,b,x,s,t) { return safeAdd(rol(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b); }
+    function ff(a,b,c,d,x,s,t) { return cmn((b&c)|(~b&d),a,b,x,s,t); }
+    function gg(a,b,c,d,x,s,t) { return cmn((b&d)|(c&~d),a,b,x,s,t); }
+    function hh(a,b,c,d,x,s,t) { return cmn(b^c^d,a,b,x,s,t); }
+    function ii(a,b,c,d,x,s,t) { return cmn(c^(b|~d),a,b,x,s,t); }
+    function hex(n) { var s='',v; for(var i=0;i<4;i++){v=(n>>>(i*8))&0xff;s+=('0'+v.toString(16)).slice(-2);} return s; }
+    str = unescape(encodeURIComponent(str));
+    var m=[]; for(var i=0;i<str.length;i++) m[i>>2]|=str.charCodeAt(i)<<((i%4)*8);
+    m[str.length>>2]|=0x80<<((str.length%4)*8);
+    m[(((str.length+8)>>6)<<4)+14]=str.length*8;
+    var a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+    for(var i=0;i<m.length;i+=16){
+      var A=a,B=b,C=c,D=d;
+      a=ff(a,b,c,d,m[i],7,-680876936);d=ff(d,a,b,c,m[i+1],12,-389564586);c=ff(c,d,a,b,m[i+2],17,606105819);b=ff(b,c,d,a,m[i+3],22,-1044525330);
+      a=ff(a,b,c,d,m[i+4],7,-176418897);d=ff(d,a,b,c,m[i+5],12,1200080426);c=ff(c,d,a,b,m[i+6],17,-1473231341);b=ff(b,c,d,a,m[i+7],22,-45705983);
+      a=ff(a,b,c,d,m[i+8],7,1770035416);d=ff(d,a,b,c,m[i+9],12,-1958414417);c=ff(c,d,a,b,m[i+10],17,-42063);b=ff(b,c,d,a,m[i+11],22,-1990404162);
+      a=ff(a,b,c,d,m[i+12],7,1804603682);d=ff(d,a,b,c,m[i+13],12,-40341101);c=ff(c,d,a,b,m[i+14],17,-1502002290);b=ff(b,c,d,a,m[i+15],22,1236535329);
+      a=gg(a,b,c,d,m[i+1],5,-165796510);d=gg(d,a,b,c,m[i+6],9,-1069501632);c=gg(c,d,a,b,m[i+11],14,643717713);b=gg(b,c,d,a,m[i],20,-373897302);
+      a=gg(a,b,c,d,m[i+5],5,-701558691);d=gg(d,a,b,c,m[i+10],9,38016083);c=gg(c,d,a,b,m[i+15],14,-660478335);b=gg(b,c,d,a,m[i+4],20,-405537848);
+      a=gg(a,b,c,d,m[i+9],5,568446438);d=gg(d,a,b,c,m[i+14],9,-1019803690);c=gg(c,d,a,b,m[i+3],14,-187363961);b=gg(b,c,d,a,m[i+8],20,1163531501);
+      a=gg(a,b,c,d,m[i+13],5,-1444681467);d=gg(d,a,b,c,m[i+2],9,-51403784);c=gg(c,d,a,b,m[i+7],14,1735328473);b=gg(b,c,d,a,m[i+12],20,-1926607734);
+      a=hh(a,b,c,d,m[i+5],4,-378558);d=hh(d,a,b,c,m[i+8],11,-2022574463);c=hh(c,d,a,b,m[i+11],16,1839030562);b=hh(b,c,d,a,m[i+14],23,-35309556);
+      a=hh(a,b,c,d,m[i+1],4,-1530992060);d=hh(d,a,b,c,m[i+4],11,1272893353);c=hh(c,d,a,b,m[i+7],16,-155497632);b=hh(b,c,d,a,m[i+10],23,-1094730640);
+      a=hh(a,b,c,d,m[i+13],4,681279174);d=hh(d,a,b,c,m[i],11,-358537222);c=hh(c,d,a,b,m[i+3],16,-722521979);b=hh(b,c,d,a,m[i+6],23,76029189);
+      a=hh(a,b,c,d,m[i+9],4,-640364487);d=hh(d,a,b,c,m[i+12],11,-421815835);c=hh(c,d,a,b,m[i+15],16,530742520);b=hh(b,c,d,a,m[i+2],23,-995338651);
+      a=ii(a,b,c,d,m[i],6,-198630844);d=ii(d,a,b,c,m[i+7],10,1126891415);c=ii(c,d,a,b,m[i+14],15,-1416354905);b=ii(b,c,d,a,m[i+5],21,-57434055);
+      a=ii(a,b,c,d,m[i+12],6,1700485571);d=ii(d,a,b,c,m[i+3],10,-1894986606);c=ii(c,d,a,b,m[i+10],15,-1051523);b=ii(b,c,d,a,m[i+1],21,-2054922799);
+      a=ii(a,b,c,d,m[i+8],6,1873313359);d=ii(d,a,b,c,m[i+15],10,-30611744);c=ii(c,d,a,b,m[i+6],15,-1560198380);b=ii(b,c,d,a,m[i+13],21,1309151649);
+      a=ii(a,b,c,d,m[i+4],6,-145523070);d=ii(d,a,b,c,m[i+11],10,-1120210379);c=ii(c,d,a,b,m[i+2],15,718787259);b=ii(b,c,d,a,m[i+9],21,-343485551);
+      a=safeAdd(a,A);b=safeAdd(b,B);c=safeAdd(c,C);d=safeAdd(d,D);
+    }
+    return hex(a)+hex(b)+hex(c)+hex(d);
+  }
+
+  // ══════════════════════════════════════════════════════
+  // ── Last.fm Scrobbler ──
+  // ══════════════════════════════════════════════════════
+  var LFM_API_KEY    = '27de7cc6b889e440fdc676b88a9e61c6';
+  var LFM_SECRET     = '7de74dec7ca2f164175a641f5fadd9af';
+  var LFM_ENDPOINT   = 'https://ws.audioscrobbler.com/2.0/';
+  var LFM_SK_KEY     = 'myradio-lfm-sk';
+  var LFM_USER_KEY   = 'myradio-lfm-user';
+
+  var LFM_DUAL_KEY   = 'myradio-lfm-dual';
+
+  var lfm = {
+    sessionKey:     localStorage.getItem(LFM_SK_KEY)   || null,
+    username:       localStorage.getItem(LFM_USER_KEY) || null,
+    pendingToken:   null,
+    scrobbleCount:  0,
+    dualScrobble:   localStorage.getItem(LFM_DUAL_KEY) === 'true',
+    scrobbleTimers: { rad: null, lmoe: null },
+    pendingTrack:   { rad: null, lmoe: null },
+    lastNP:         { rad: null, lmoe: null },
+  };
+
+  // ── api_sig: sort params (no format/callback), concat key+val, append secret, MD5
+  function lfmSig(params) {
+    var keys = Object.keys(params).filter(function(k){ return k !== 'format'; }).sort();
+    var str  = keys.map(function(k){ return k + params[k]; }).join('') + LFM_SECRET;
+    return md5(str);
+  }
+
+  // ── Generic Last.fm API call (GET or POST)
+  async function lfmCall(method, params, post) {
+    params = Object.assign({ method: method, api_key: LFM_API_KEY }, params);
+    params.api_sig = lfmSig(params);
+    params.format  = 'json';
+    if (post) {
+      var body = new URLSearchParams(params);
+      var res  = await fetch(LFM_ENDPOINT, { method: 'POST', body: body });
+      return res.json();
+    } else {
+      var qs  = new URLSearchParams(params).toString();
+      var res = await fetch(LFM_ENDPOINT + '?' + qs);
+      return res.json();
+    }
+  }
+
+  // ── Parse r/a/dio "Artist - Title" string → { track, artist }
+  function lfmParseRad(np) {
+    if (!np) return { track: '', artist: '' };
+    var idx = np.indexOf(' - ');
+    if (idx > 2 && idx < np.length - 3) {
+      var artist = np.slice(0, idx).trim();
+      var track  = np.slice(idx + 3).trim();
+      // Sanity: neither part should be suspiciously short (< 2 chars)
+      if (artist.length >= 2 && track.length >= 2) return { track: track, artist: artist };
+    }
+    // Fallback: full string as track, no artist
+    return { track: np.trim(), artist: '' };
+  }
+
+  // ── updateNowPlaying (fire-and-forget, no toast on success)
+  async function lfmNowPlaying(id, track, artist) {
+    if (!lfm.sessionKey || !track) return;
+    // Deduplicate: skip if same as last NP sent
+    var key = track + '|' + artist;
+    if (lfm.lastNP[id] === key) return;
+    lfm.lastNP[id] = key;
+    try {
+      await lfmCall('track.updateNowPlaying', { track: track, artist: artist, sk: lfm.sessionKey }, true);
+    } catch(e) { /* silent — NP is best-effort */ }
+  }
+
+  // ── Scrobble a track
+  async function lfmScrobble(track, artist, timestamp) {
+    if (!lfm.sessionKey || !track) return;
+    try {
+      var data = await lfmCall('track.scrobble', {
+        track: track, artist: artist,
+        timestamp: String(timestamp),
+        sk: lfm.sessionKey
+      }, true);
+      // Last.fm error codes: 9 = invalid/expired session → auto-disconnect
+      if (data && data.error) {
+        if (data.error === 9) {
+          lfmDisconnect();
+          showToast(T.lfm_auth_fail);
+        } else {
+          showToast(T.lfm_scrobble_fail);
+        }
+        return;
+      }
+      var attr = data && data.scrobbles && data.scrobbles['@attr'];
+      if (attr && attr.accepted > 0) {
+        lfm.scrobbleCount++;
+        lfmRenderSection();
+      }
+      // accepted=0 + ignored>0 = Last.fm silently ignored (too short, spam filter, etc)
+      // Not our fault — silent fail, no toast
+    } catch(e) {
+      showToast(T.lfm_scrobble_fail);
+    }
+  }
+
+  // ── Called on every real track change (from fetchRadAPI and lmoe WS)
+  function lfmOnTrackChange(id, newTrack, newArtist) {
+    if (!lfm.sessionKey) return;
+    // Dual mode OFF: skip stations not currently playing audio
+    if (!lfm.dualScrobble && $('audio-' + id).paused) return;
+
+    // Cancel any pending scrobble for this station
+    if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
+
+    // Scrobble the PREVIOUS track if we had one pending (i.e. it played long enough)
+    // Actually the 30s timer handles it — we just fire NP for the new track now.
+
+    if (!newTrack) return;
+
+    // updateNowPlaying immediately
+    lfmNowPlaying(id, newTrack, newArtist || '');
+
+    // Record for scrobble after 30s
+    var ts = Math.floor(Date.now() / 1000);
+    lfm.pendingTrack[id] = { track: newTrack, artist: newArtist || '', ts: ts };
+
+    lfm.scrobbleTimers[id] = setTimeout(function() {
+      var p = lfm.pendingTrack[id];
+      if (p) lfmScrobble(p.track, p.artist, p.ts);
+    }, 30000);
+  }
+
+  // ── Auth: step 1 — get token + open web widget
+  async function lfmStartAuth() {
+    lfmSetBusy(true);
+    try {
+      // getToken does NOT need a signature
+      var res  = await fetch(LFM_ENDPOINT + '?method=auth.getToken&api_key=' + LFM_API_KEY + '&format=json');
+      var data = await res.json();
+      if (!data || !data.token) throw new Error('no token');
+      lfm.pendingToken = data.token;
+      // Open Last.fm auth page in a new tab — Last.fm blocks iframe embedding
+      var authUrl = 'https://www.last.fm/api/auth/?api_key=' + LFM_API_KEY + '&token=' + lfm.pendingToken;
+      window.open(authUrl, '_blank', 'noopener');
+      lfmSetBusy(false); // unlock confirm button — user needs to approve then tap it
+    } catch(e) {
+      showToast(T.lfm_auth_fail);
+      lfmSetBusy(false);
+    }
+  }
+
+  // ── Auth: step 2 — exchange token for session key (user tapped confirm)
+  async function lfmCompleteAuth() {
+    if (!lfm.pendingToken) return;
+    lfmSetBusy(true);
+    try {
+      var data = await lfmCall('auth.getSession', { token: lfm.pendingToken });
+      if (!data || !data.session) throw new Error('no session');
+      lfm.sessionKey  = data.session.key;
+      lfm.username    = data.session.name;
+      lfm.pendingToken = null;
+      localStorage.setItem(LFM_SK_KEY,   lfm.sessionKey);
+      localStorage.setItem(LFM_USER_KEY, lfm.username);
+      $('settingsBadge').classList.add('visible');
+      lfmRenderSection();
+    } catch(e) {
+      showToast(T.lfm_auth_fail);
+    }
+    lfmSetBusy(false);
+  }
+
+  // ── Disconnect
+  function lfmDisconnect() {
+    lfm.sessionKey  = null;
+    lfm.username    = null;
+    lfm.pendingToken = null;
+    lfm.scrobbleCount = 0;
+    lfm.lastNP = { rad: null, lmoe: null };
+    ['rad','lmoe'].forEach(function(id){
+      if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
+      lfm.pendingTrack[id] = null;
+    });
+    localStorage.removeItem(LFM_SK_KEY);
+    localStorage.removeItem(LFM_USER_KEY);
+    $('settingsBadge').classList.remove('visible');
+    lfmRenderSection();
+  }
+
+  var _lfmBusy = false;
+  function lfmSetBusy(b) { _lfmBusy = b; lfmRenderSection(); }
+
+  // ── Open web widget specifically for Last.fm auth (no close-on-iframe-load)
+  // ── Render the Last.fm section inside settings widget
+  function lfmRenderSection() {
+    var el = $('lfmSection');
+    if (!el) return;
+
+    var logoSvg = '<div class="lfm-logo"><svg viewBox="0 0 24 24"><path d="M9 18V6l11 6z" opacity="0.9"/><rect x="3" y="8" width="2.5" height="8" rx="1"/><rect x="6.5" y="5" width="2.5" height="14" rx="1"/></svg></div>';
+    var sectionLabel = '<div class="sw-section-label" style="margin-bottom:4px;">' + T.lfm_section_label + '</div>';
+    var headerHtml   = '<div class="lfm-header">' + logoSvg + '<span class="lfm-label">' + T.lfm_title + '</span>' + (lfm.sessionKey ? '<span class="lfm-connected-dot"></span>' : '') + '</div>';
+
+    var bodyHtml = '';
+
+    if (lfm.sessionKey) {
+      var dualChecked = lfm.dualScrobble ? ' checked' : '';
+      bodyHtml =
+        '<div class="lfm-user">' +
+          '<span class="lfm-username">@' + escHtml(lfm.username || '') + '</span>' +
+          '<span class="lfm-count">' + lfm.scrobbleCount + ' ' + T.lfm_scrobbles + '</span>' +
+        '</div>' +
+        '<div class="sw-row">' +
+          '<div class="sw-row-label">' + T.lfm_dual_label + '</div>' +
+          '<label class="sw-toggle">' +
+            '<input type="checkbox" id="lfmDualToggle"' + dualChecked + ' onchange="lfmSetDual(this.checked)">' +
+            '<span class="sw-track"></span>' +
+            '<span class="sw-thumb"></span>' +
+          '</label>' +
+        '</div>' +
+        '<p class="sw-info">' + T.lfm_dual_info + '</p>' +
+        '<p class="sw-info">' + T.lfm_connected_info + '</p>' +
+        '<button class="lfm-btn danger" style="margin-top:4px;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
+    } else if (lfm.pendingToken) {
+      bodyHtml =
+        '<div class="lfm-auth-hint">' + T.lfm_auth_waiting + '</div>' +
+        '<button class="lfm-btn confirm" onclick="lfmCompleteAuth()"' + (_lfmBusy ? ' disabled' : '') + '>' +
+          (_lfmBusy ? T.lfm_connecting : T.lfm_auth_confirm) +
+        '</button>';
+    } else {
+      bodyHtml =
+        '<p class="lfm-desc">' + T.lfm_desc + '</p>' +
+        '<button class="lfm-btn primary" onclick="lfmStartAuth()"' + (_lfmBusy ? ' disabled' : '') + '>' +
+          (_lfmBusy ? T.lfm_connecting : T.lfm_connect) +
+        '</button>';
+    }
+
+    el.innerHTML = sectionLabel + headerHtml + bodyHtml;
+  }
+
+  // ── Toggle dual scrobble on/off, persist to localStorage
+  function lfmSetDual(on) {
+    lfm.dualScrobble = on;
+    localStorage.setItem(LFM_DUAL_KEY, on ? 'true' : 'false');
+  }
+
+  // ── Init: show badge if already connected from previous session
+  if (lfm.sessionKey) $('settingsBadge').classList.add('visible');
+  lfmRenderSection();
+
+  // ══════════════════════════════════════════════════════
+  // ── Hook Last.fm into track change events ──
+  // ══════════════════════════════════════════════════════
+
+  // Patch fetchRadAPI to call lfmOnTrackChange on song change
+  var _origFetchRadAPI = fetchRadAPI;
+  fetchRadAPI = async function() {
+    var prevSong = nowPlaying.rad.song;
+    await _origFetchRadAPI();
+    var newSong = nowPlaying.rad.song;
+    if (newSong && newSong !== prevSong) {
+      var parsed = lfmParseRad(newSong);
+      lfmOnTrackChange('rad', parsed.track, parsed.artist);
+    }
+  };
+
+
 
 
 </script>
