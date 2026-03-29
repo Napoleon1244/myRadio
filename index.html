@@ -414,6 +414,14 @@
     }
     .hw-copy:active { transform:scale(0.85); opacity:1; }
     .hw-copy.copied { color:var(--green); opacity:1; }
+    .hw-lfm {
+      background:none; border:none; cursor:pointer;
+      font-size:0.82rem; color:#d51007; opacity:0.6;
+      transition:opacity 0.2s, transform 0.15s;
+      padding:0; flex-shrink:0; line-height:1;
+    }
+    .hw-lfm:active { transform:scale(0.85); opacity:1; }
+    .hw-lfm.done { color:var(--green); opacity:1; pointer-events:none; }
     .hw-meta {
       font-size:0.55rem; color:var(--dim);
       display:flex; justify-content:space-between; align-items:center;
@@ -1185,18 +1193,18 @@
       settings_theme_info: 'Preferensi tema disimpan otomatis.',
       lfm_title:         'Last.fm',
       lfm_section_label: 'Musik',
-      lfm_desc:          'Catat semua lagu yang kamu dengarkan otomatis ke profilmu di Last.fm.',
+      lfm_desc:          'Hubungkan Last.fm untuk bisa submit lagu dari riwayat putar langsung ke profilmu.',
       lfm_connect:       'Hubungkan Last.fm',
       lfm_connecting:    'Menghubungkan…',
       lfm_auth_waiting:  'Setujui myRadio di tab Last.fm yang baru terbuka, lalu ketuk tombol di bawah.',
       lfm_auth_confirm:  'Sudah Disetujui ✓',
       lfm_disconnect:    'Putuskan Koneksi',
-      lfm_scrobbles:     'scrobble sesi ini',
-      lfm_scrobble_fail: 'Scrobble gagal — coba lagi nanti',
+      lfm_scrobbles:     'lagu disubmit sesi ini',
+      lfm_scrobble_fail: 'Gagal submit ke Last.fm',
       lfm_auth_fail:     'Gagal terhubung ke Last.fm',
-      lfm_dual_label:    'Scrobble Ganda',
-      lfm_dual_info:     'Catat lagu dari kedua stasiun sekaligus — cocok kalau kamu suka pindah-pindah antara r/a/dio dan listen.moe.',
-      lfm_connected_info: 'Tracking dimulai saat kamu menekan play. Lagu tercatat ke Last.fm setelah didengar ≥ 30 detik — kalau pindah stasiun sebelum 30 detik, lagu lama langsung di-submit.',
+      lfm_connected_info: 'Ketuk ⊕ di samping lagu di riwayat putar untuk submit ke Last.fm.',
+      lfm_submit_title:  'Submit ke Last.fm',
+      lfm_submitted:     '✓',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1250,18 +1258,18 @@
       settings_theme_info: 'Theme preference is saved automatically.',
       lfm_title:         'Last.fm',
       lfm_section_label: 'Music',
-      lfm_desc:          'Automatically track every song you listen to on your Last.fm profile.',
+      lfm_desc:          'Connect Last.fm to submit songs from your play history directly to your profile.',
       lfm_connect:       'Connect Last.fm',
       lfm_connecting:    'Connecting…',
       lfm_auth_waiting:  'Approve myRadio on the Last.fm tab that just opened, then tap the button below.',
       lfm_auth_confirm:  'I\'ve Approved ✓',
       lfm_disconnect:    'Disconnect',
-      lfm_scrobbles:     'scrobbles this session',
-      lfm_scrobble_fail: 'Scrobble failed — try again later',
+      lfm_scrobbles:     'songs submitted this session',
+      lfm_scrobble_fail: 'Failed to submit to Last.fm',
       lfm_auth_fail:     'Failed to connect to Last.fm',
-      lfm_dual_label:    'Dual Scrobble',
-      lfm_dual_info:     'Track songs from both stations simultaneously — great if you switch between r/a/dio and listen.moe.',
-      lfm_connected_info: 'Tracking starts the moment you press play. Songs are submitted to Last.fm after ≥ 30 seconds — if you switch stations before 30s, the previous song is submitted immediately.',
+      lfm_connected_info: 'Tap ⊕ next to any song in your history to submit it to Last.fm.',
+      lfm_submit_title:  'Submit to Last.fm',
+      lfm_submitted:     '✓',
     }
   };
 
@@ -1517,9 +1525,6 @@
             ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
             : '';
 
-          // Capture prev song BEFORE updating lastLmoeTrack — used by LFM hook below
-          var prevLmoeSong = lastLmoeTrack ? lastLmoeTrack.song : null;
-
           // Lagu berganti → catat lagu LAMA ke history
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
@@ -1531,11 +1536,6 @@
 
           nowPlaying.lmoe.song   = newSong;
           nowPlaying.lmoe.artist = newArtist;
-
-          // Hook into Last.fm scrobbler — only if lmoe is actually playing
-          if (newSong && newSong !== prevLmoeSong && !$('audio-lmoe').paused) {
-            lfmOnTrackChange('lmoe', newSong, newArtist);
-          }
         }
         if (data.d && data.d.listeners !== undefined) nowPlaying.lmoe.listeners = data.d.listeners;
         updateLmoeUI();
@@ -1579,15 +1579,7 @@
     STATIONS.forEach(o => {
       if (o === id) return;
       const a = $('audio-' + o);
-      if (!a.paused) {
-        // Scrobble whatever was pending for the station being stopped — user switched away
-        if (typeof lfm !== 'undefined' && lfm.sessionKey) {
-          if (lfm.scrobbleTimers[o]) { clearTimeout(lfm.scrobbleTimers[o]); lfm.scrobbleTimers[o] = null; }
-          const p = lfm.pendingTrack[o];
-          if (p) { lfmScrobble(p.track, p.artist, p.ts); lfm.pendingTrack[o] = null; }
-        }
-        a.pause(); setStopped(o);
-      }
+      if (!a.paused) { a.pause(); setStopped(o); }
     });
   }
   function setPlaying(id) {
@@ -1782,24 +1774,11 @@
       updateMediaSession(id);
       if ('mediaSession' in navigator)
         navigator.mediaSession.playbackState = 'playing';
-      // Fire LFM when audio starts — only if no pending track (fresh play, not stall recovery)
-      // On stall/reconnect, the existing 30s timer keeps running — don't reset it
-      if (typeof lfm !== 'undefined' && lfm.sessionKey && !lfm.pendingTrack[id]) {
-        const np = nowPlaying[id];
-        const track = id === 'rad' ? lfmParseRad(np.song) : { track: np.song || '', artist: np.artist || '' };
-        if (track.track) lfmOnTrackChange(id, track.track, track.artist || '');
-      }
     });
 
     audio.addEventListener('pause', () => {
       clearStall(); clearWatchdog(); clearReconn();
       setStopped(id);
-      // Clear pending track — if user replays, treat as fresh session
-      if (typeof lfm !== 'undefined') {
-        if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
-        lfm.pendingTrack[id] = null;
-        lfm.lastNP[id] = null;
-      }
       if ('mediaSession' in navigator)
         navigator.mediaSession.playbackState = 'paused';
     });
@@ -2096,14 +2075,6 @@
       if (icon) icon.textContent = getVolIcon(1);
     });
 
-    // Cancel any pending LFM scrobbles — audio was stopped deliberately, don't scrobble
-    if (typeof lfm !== 'undefined') {
-      STATIONS.forEach(function(id) {
-        if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
-        lfm.pendingTrack[id] = null;
-      });
-    }
-
     // Kill MediaSession entirely — not pause, fully gone from notification bar
     clearMediaSession();
 
@@ -2205,11 +2176,18 @@
       list.innerHTML = '<div class="hw-empty">' + T.history_empty + '</div>';
       return;
     }
+    const showLfm = lfm && lfm.sessionKey;
     list.innerHTML = hist.map(function(h, i) {
+      var lfmBtn = showLfm
+        ? '<button class="hw-lfm" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="' + T.lfm_submit_title + '">⊕</button>'
+        : '';
       return '<div class="hw-item">' +
         '<div class="hw-item-top">' +
           '<span class="hw-song">' + escHtml(h.song) + '</span>' +
-          '<button class="hw-copy" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="Salin">&#x2398;</button>' +
+          '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' +
+            lfmBtn +
+            '<button class="hw-copy" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="Salin">&#x2398;</button>' +
+          '</div>' +
         '</div>' +
         '<div class="hw-meta">' +
           '<span>' + escHtml(h.sub || '') + '</span>' +
@@ -2224,7 +2202,46 @@
     if (e.target.matches('.hw-copy')) {
       hwCopy(e.target, parseInt(e.target.dataset.idx, 10), e.target.dataset.tab);
     }
+    if (e.target.matches('.hw-lfm')) {
+      hwSubmitLfm(e.target, parseInt(e.target.dataset.idx, 10), e.target.dataset.tab);
+    }
   });
+
+  async function hwSubmitLfm(btn, idx, stationId) {
+    if (!lfm || !lfm.sessionKey) return;
+    const hist = loadHist(stationId);
+    const h = hist[idx];
+    if (!h) return;
+
+    // Parse track/artist from song string
+    var track, artist;
+    if (stationId === 'lmoe') {
+      track  = h.song;
+      artist = h.sub || '';
+    } else {
+      // r/a/dio: "Artist - Title" format
+      var sep = h.song.indexOf(' - ');
+      if (sep > 2 && sep < h.song.length - 3) {
+        artist = h.song.slice(0, sep).trim();
+        track  = h.song.slice(sep + 3).trim();
+        if (artist.length < 2 || track.length < 2) { track = h.song; artist = ''; }
+      } else {
+        track = h.song; artist = '';
+      }
+    }
+
+    btn.textContent = '…';
+    btn.style.opacity = '1';
+    const ts = Math.floor((h.ts || Date.now()) / 1000);
+    const ok = await lfmScrobble(track, artist, ts);
+    if (ok) {
+      btn.textContent = '✓';
+      btn.classList.add('done');
+    } else {
+      btn.textContent = '⊕';
+      btn.style.opacity = '';
+    }
+  }
 
   function escHtml(s) {
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2442,13 +2459,10 @@
   var LFM_USER_KEY   = 'myradio-lfm-user';
 
   var lfm = {
-    sessionKey:     localStorage.getItem(LFM_SK_KEY)   || null,
-    username:       localStorage.getItem(LFM_USER_KEY) || null,
-    pendingToken:   null,
-    scrobbleCount:  0,
-    scrobbleTimers: { rad: null, lmoe: null },
-    pendingTrack:   { rad: null, lmoe: null },
-    lastNP:         { rad: null, lmoe: null },
+    sessionKey:    localStorage.getItem(LFM_SK_KEY)   || null,
+    username:      localStorage.getItem(LFM_USER_KEY) || null,
+    pendingToken:  null,
+    scrobbleCount: 0,
   };
 
   // ── api_sig: sort params (no format/callback), concat key+val, append secret, MD5
@@ -2474,86 +2488,31 @@
     }
   }
 
-  // ── Parse r/a/dio "Artist - Title" string → { track, artist }
-  function lfmParseRad(np) {
-    if (!np) return { track: '', artist: '' };
-    var idx = np.indexOf(' - ');
-    if (idx > 2 && idx < np.length - 3) {
-      var artist = np.slice(0, idx).trim();
-      var track  = np.slice(idx + 3).trim();
-      // Sanity: neither part should be suspiciously short (< 2 chars)
-      if (artist.length >= 2 && track.length >= 2) return { track: track, artist: artist };
-    }
-    // Fallback: full string as track, no artist
-    return { track: np.trim(), artist: '' };
-  }
-
-  // ── updateNowPlaying (fire-and-forget, no toast on success)
-  async function lfmNowPlaying(id, track, artist) {
-    if (!lfm.sessionKey || !track) return;
-    // Deduplicate: skip if same as last NP sent
-    var key = track + '|' + artist;
-    if (lfm.lastNP[id] === key) return;
-    lfm.lastNP[id] = key;
-    try {
-      await lfmCall('track.updateNowPlaying', { track: track, artist: artist, sk: lfm.sessionKey }, true);
-    } catch(e) { /* silent — NP is best-effort */ }
-  }
-
-  // ── Scrobble a track
+  // ── Manual scrobble — submit a track directly to Last.fm (called by user from history)
   async function lfmScrobble(track, artist, timestamp) {
     if (!lfm.sessionKey || !track) return;
     try {
       var data = await lfmCall('track.scrobble', {
-        track: track, artist: artist,
-        timestamp: String(timestamp),
+        track: track, artist: artist || '',
+        timestamp: String(timestamp || Math.floor(Date.now() / 1000)),
         sk: lfm.sessionKey
       }, true);
-      // Last.fm error codes: 9 = invalid/expired session → auto-disconnect
       if (data && data.error) {
-        if (data.error === 9) {
-          lfmDisconnect();
-          showToast(T.lfm_auth_fail);
-        } else {
-          showToast(T.lfm_scrobble_fail);
-        }
-        return;
+        if (data.error === 9) { lfmDisconnect(); showToast(T.lfm_auth_fail); }
+        else { showToast(T.lfm_scrobble_fail); }
+        return false;
       }
       var attr = data && data.scrobbles && data.scrobbles['@attr'];
       if (attr && attr.accepted > 0) {
         lfm.scrobbleCount++;
         lfmRenderSection();
+        return true;
       }
-      // accepted=0 + ignored>0 = Last.fm silently ignored (too short, spam filter, etc)
-      // Not our fault — silent fail, no toast
+      return false;
     } catch(e) {
       showToast(T.lfm_scrobble_fail);
+      return false;
     }
-  }
-
-  // ── Called on every real track change (from fetchRadAPI and lmoe WS)
-  function lfmOnTrackChange(id, newTrack, newArtist) {
-    if (!lfm.sessionKey) return;
-
-    // Cancel any pending scrobble for this station
-    if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
-
-    // Scrobble the PREVIOUS track if we had one pending (i.e. it played long enough)
-    // Actually the 30s timer handles it — we just fire NP for the new track now.
-
-    if (!newTrack) return;
-
-    // updateNowPlaying immediately
-    lfmNowPlaying(id, newTrack, newArtist || '');
-
-    // Record for scrobble after 30s
-    var ts = Math.floor(Date.now() / 1000);
-    lfm.pendingTrack[id] = { track: newTrack, artist: newArtist || '', ts: ts };
-
-    lfm.scrobbleTimers[id] = setTimeout(function() {
-      var p = lfm.pendingTrack[id];
-      if (p) lfmScrobble(p.track, p.artist, p.ts);
-    }, 30000);
   }
 
   // ── Auth: step 1 — get token + open web widget
@@ -2589,6 +2548,7 @@
       localStorage.setItem(LFM_USER_KEY, lfm.username);
       $('settingsBadge').classList.add('visible');
       lfmRenderSection();
+      if (historyWidget.classList.contains('open')) renderHistory();
     } catch(e) {
       showToast(T.lfm_auth_fail);
     }
@@ -2597,19 +2557,15 @@
 
   // ── Disconnect
   function lfmDisconnect() {
-    lfm.sessionKey  = null;
-    lfm.username    = null;
+    lfm.sessionKey   = null;
+    lfm.username     = null;
     lfm.pendingToken = null;
     lfm.scrobbleCount = 0;
-    lfm.lastNP = { rad: null, lmoe: null };
-    ['rad','lmoe'].forEach(function(id){
-      if (lfm.scrobbleTimers[id]) { clearTimeout(lfm.scrobbleTimers[id]); lfm.scrobbleTimers[id] = null; }
-      lfm.pendingTrack[id] = null;
-    });
     localStorage.removeItem(LFM_SK_KEY);
     localStorage.removeItem(LFM_USER_KEY);
     $('settingsBadge').classList.remove('visible');
     lfmRenderSection();
+    if (historyWidget.classList.contains('open')) renderHistory();
   }
 
   var _lfmBusy = false;
@@ -2655,25 +2611,6 @@
   // ── Init: show badge if already connected from previous session
   if (lfm.sessionKey) $('settingsBadge').classList.add('visible');
   lfmRenderSection();
-
-  // ══════════════════════════════════════════════════════
-  // ── Hook Last.fm into track change events ──
-  // ══════════════════════════════════════════════════════
-
-  // Patch fetchRadAPI to call lfmOnTrackChange on song change
-  var _origFetchRadAPI = fetchRadAPI;
-  fetchRadAPI = async function() {
-    var prevSong = nowPlaying.rad.song;
-    await _origFetchRadAPI();
-    var newSong = nowPlaying.rad.song;
-    // Only scrobble if rad is actually playing — don't track background station
-    if (newSong && newSong !== prevSong && !$('audio-rad').paused) {
-      var parsed = lfmParseRad(newSong);
-      lfmOnTrackChange('rad', parsed.track, parsed.artist);
-    }
-  };
-
-
 
 
 </script>
