@@ -1201,6 +1201,7 @@
       lfm_disconnect:    'Putuskan Koneksi',
       lfm_scrobbles:     'lagu disubmit sesi ini',
       lfm_scrobble_fail: 'Gagal submit ke Last.fm',
+      lfm_scrobble_ok:   '✓ Tersubmit ke Last.fm',
       lfm_auth_fail:     'Gagal terhubung ke Last.fm',
       lfm_connected_info: 'Ketuk ⊕ di samping lagu di riwayat putar untuk submit ke Last.fm.',
       lfm_submit_title:  'Submit ke Last.fm',
@@ -1266,6 +1267,7 @@
       lfm_disconnect:    'Disconnect',
       lfm_scrobbles:     'songs submitted this session',
       lfm_scrobble_fail: 'Failed to submit to Last.fm',
+      lfm_scrobble_ok:   '✓ Submitted to Last.fm',
       lfm_auth_fail:     'Failed to connect to Last.fm',
       lfm_connected_info: 'Tap ⊕ next to any song in your history to submit it to Last.fm.',
       lfm_submit_title:  'Submit to Last.fm',
@@ -2233,6 +2235,7 @@
     btn.textContent = '…';
     btn.style.opacity = '1';
     const ts = Math.floor((h.ts || Date.now()) / 1000);
+    console.log('[myRadio] Submitting to Last.fm:', { track, artist, ts });
     const ok = await lfmScrobble(track, artist, ts);
     if (ok) {
       btn.textContent = '✓';
@@ -2488,28 +2491,48 @@
     }
   }
 
-  // ── Manual scrobble — submit a track directly to Last.fm (called by user from history)
+  // ── Manual scrobble — submit a track directly to Last.fm
   async function lfmScrobble(track, artist, timestamp) {
-    if (!lfm.sessionKey || !track) return;
+    if (!lfm.sessionKey || !track) return false;
     try {
       var data = await lfmCall('track.scrobble', {
-        track: track, artist: artist || '',
+        track:     track,
+        artist:    artist || '',
         timestamp: String(timestamp || Math.floor(Date.now() / 1000)),
-        sk: lfm.sessionKey
+        sk:        lfm.sessionKey
       }, true);
+
+      console.log('[myRadio] lfmScrobble response:', JSON.stringify(data));
+
       if (data && data.error) {
+        console.warn('[myRadio] Last.fm error:', data.error, data.message);
         if (data.error === 9) { lfmDisconnect(); showToast(T.lfm_auth_fail); }
-        else { showToast(T.lfm_scrobble_fail); }
+        else { showToast(T.lfm_scrobble_fail + (data.message ? ': ' + data.message : '')); }
         return false;
       }
-      var attr = data && data.scrobbles && data.scrobbles['@attr'];
-      if (attr && attr.accepted > 0) {
+
+      var attr    = data && data.scrobbles && data.scrobbles['@attr'];
+      var accepted = attr ? parseInt(attr.accepted, 10) : 0;
+      var ignored  = attr ? parseInt(attr.ignored,  10) : 0;
+
+      if (accepted > 0) {
         lfm.scrobbleCount++;
         lfmRenderSection();
+        showToast(T.lfm_scrobble_ok);
         return true;
       }
+
+      // accepted=0 — show Last.fm's ignore reason if available
+      var scrobble   = data && data.scrobbles && data.scrobbles.scrobble;
+      var ignoreMsg  = scrobble && scrobble.ignoredMessage;
+      var ignoreText = ignoreMsg && ignoreMsg['#text'] ? ignoreMsg['#text'] : '';
+      var ignoreCode = ignoreMsg && ignoreMsg.code ? ignoreMsg.code : '';
+      console.warn('[myRadio] Scrobble ignored. code:', ignoreCode, 'reason:', ignoreText);
+      showToast(ignoreText || T.lfm_scrobble_fail);
       return false;
+
     } catch(e) {
+      console.error('[myRadio] lfmScrobble error:', e);
       showToast(T.lfm_scrobble_fail);
       return false;
     }
