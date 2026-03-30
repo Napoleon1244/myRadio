@@ -180,6 +180,14 @@
     }
     .copy-btn:active { transform: scale(0.85); opacity: 1; }
     .copy-btn.copied { color: var(--green); opacity: 1; }
+    .np-lfm-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.85rem; color: #d51007; opacity: 0.6;
+      transition: opacity 0.2s, transform 0.15s;
+      padding: 0; line-height: 1; flex-shrink: 0;
+    }
+    .np-lfm-btn:active { transform: scale(0.85); opacity: 1; }
+    .np-lfm-btn.done { color: var(--green); opacity: 1; pointer-events: none; }
 
     /* Song title: static with ellipsis */
     .info-song {
@@ -837,7 +845,10 @@
     <div class="info-card" id="info-card-rad">
       <div class="info-station">
         <span class="info-name">r/a/dio</span>
-        <button class="copy-btn" id="copy-rad" onclick="copyNowPlaying('rad')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+          <button class="np-lfm-btn" id="np-lfm-rad" onclick="npSubmitLfm('rad')" title="Submit ke Last.fm" style="display:none;">⊕</button>
+          <button class="copy-btn" id="copy-rad" onclick="copyNowPlaying('rad')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+        </div>
       </div>
       <div class="info-song" id="np-rad-song">—</div>
       <div class="info-row">
@@ -850,7 +861,10 @@
     <div class="info-card" id="info-card-lmoe">
       <div class="info-station">
         <span class="info-name">listen.moe</span>
-        <button class="copy-btn" id="copy-lmoe" onclick="copyNowPlaying('lmoe')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+          <button class="np-lfm-btn" id="np-lfm-lmoe" onclick="npSubmitLfm('lmoe')" title="Submit ke Last.fm" style="display:none;">⊕</button>
+          <button class="copy-btn" id="copy-lmoe" onclick="copyNowPlaying('lmoe')" data-i18n-title="copy_title" title="Salin judul lagu">⎘</button>
+        </div>
       </div>
       <div class="info-song" id="np-lmoe-song">—</div>
       <div class="info-row">
@@ -1424,6 +1438,11 @@
       $('np-rad-listeners').textContent = nowPlaying.rad.listeners
         ? '👥 ' + nowPlaying.rad.listeners : '';
       updateSongMarquee('rad');
+      // Reset NP submit button when song changes
+      var _npBtn = $('np-lfm-rad');
+      if (_npBtn && _npBtn.classList.contains('done')) {
+        _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = '';
+      }
 
       // Lagu berganti → catat lagu LAMA ke history
       if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
@@ -1477,6 +1496,11 @@
     $('np-lmoe-listeners').textContent = nowPlaying.lmoe.listeners
       ? '👥 ' + nowPlaying.lmoe.listeners : '';
     updateSongMarquee('lmoe');
+    // Reset NP submit button when song changes
+    var _npBtnL = $('np-lfm-lmoe');
+    if (_npBtnL && _npBtnL.classList.contains('done')) {
+      _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = '';
+    }
     // NOTE: pushTrack NOT called here — called only on real TRACK_UPDATE below
     if (!$('audio-lmoe').paused) updateMediaSession('lmoe');
   }
@@ -2571,6 +2595,7 @@
       localStorage.setItem(LFM_USER_KEY, lfm.username);
       $('settingsBadge').classList.add('visible');
       lfmRenderSection();
+      lfmToggleNpButtons(true);
       if (historyWidget.classList.contains('open')) renderHistory();
     } catch(e) {
       showToast(T.lfm_auth_fail);
@@ -2588,6 +2613,7 @@
     localStorage.removeItem(LFM_USER_KEY);
     $('settingsBadge').classList.remove('visible');
     lfmRenderSection();
+    lfmToggleNpButtons(false);
     if (historyWidget.classList.contains('open')) renderHistory();
   }
 
@@ -2631,8 +2657,63 @@
     el.innerHTML = sectionLabel + headerHtml + bodyHtml;
   }
 
-  // ── Init: show badge if already connected from previous session
-  if (lfm.sessionKey) $('settingsBadge').classList.add('visible');
+  // ── Show/hide ⊕ buttons on now-playing cards
+  function lfmToggleNpButtons(show) {
+    ['rad', 'lmoe'].forEach(function(id) {
+      var btn = $('np-lfm-' + id);
+      if (btn) {
+        btn.style.display = show ? 'inline' : 'none';
+        btn.textContent = '⊕';
+        btn.classList.remove('done');
+        btn.style.opacity = '';
+        btn.style.pointerEvents = '';
+      }
+    });
+  }
+
+  // ── Submit currently playing track to Last.fm
+  async function npSubmitLfm(id) {
+    var btn = $('np-lfm-' + id);
+    if (!btn || !lfm.sessionKey) return;
+
+    var np = nowPlaying[id];
+    if (!np || !np.song) return;
+
+    var track, artist;
+    if (id === 'lmoe') {
+      track  = np.song;
+      artist = np.artist || '';
+    } else {
+      // r/a/dio: parse "Artist - Title"
+      var sep = np.song.indexOf(' - ');
+      if (sep > 2 && sep < np.song.length - 3) {
+        artist = np.song.slice(0, sep).trim();
+        track  = np.song.slice(sep + 3).trim();
+        if (artist.length < 2 || track.length < 2) { track = np.song; artist = ''; }
+      } else {
+        track = np.song; artist = '';
+      }
+    }
+
+    btn.textContent = '…';
+    btn.style.opacity = '1';
+    console.log('[myRadio] NP submit to Last.fm:', { id, track, artist });
+    var ts = Math.floor(Date.now() / 1000);
+    var ok = await lfmScrobble(track, artist, ts);
+    if (ok) {
+      btn.textContent = '✓';
+      btn.classList.add('done');
+    } else {
+      btn.textContent = '⊕';
+      btn.style.opacity = '';
+    }
+  }
+
+  // ── Init: show badge + NP buttons if already connected from previous session
+  if (lfm.sessionKey) {
+    $('settingsBadge').classList.add('visible');
+    lfmToggleNpButtons(true);
+  }
   lfmRenderSection();
 
 
