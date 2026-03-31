@@ -174,7 +174,7 @@
     }
     .copy-btn {
       background: none; border: none; cursor: pointer;
-      font-size: 0.85rem; color: var(--violet); opacity: 0.65;
+      font-size: 1.05rem; color: var(--violet); opacity: 0.65;
       transition: opacity 0.2s, transform 0.15s;
       padding: 0; line-height: 1; flex-shrink: 0;
     }
@@ -182,7 +182,7 @@
     .copy-btn.copied { color: var(--green); opacity: 1; }
     .np-lfm-btn {
       background: none; border: none; cursor: pointer;
-      font-size: 0.85rem; color: #d51007; opacity: 0.6;
+      font-size: 1.05rem; color: #d51007; opacity: 0.6;
       transition: opacity 0.2s, transform 0.15s;
       padding: 0; line-height: 1; flex-shrink: 0;
     }
@@ -416,7 +416,7 @@
     }
     .hw-copy {
       background:none; border:none; cursor:pointer;
-      font-size:0.75rem; color:var(--violet); opacity:0.55;
+      font-size:1rem; color:var(--violet); opacity:0.55;
       transition:opacity 0.2s, transform 0.15s;
       padding:0; flex-shrink:0; line-height:1;
     }
@@ -424,7 +424,7 @@
     .hw-copy.copied { color:var(--green); opacity:1; }
     .hw-lfm {
       background:none; border:none; cursor:pointer;
-      font-size:0.82rem; color:#d51007; opacity:0.6;
+      font-size:1rem; color:#d51007; opacity:0.6;
       transition:opacity 0.2s, transform 0.15s;
       padding:0; flex-shrink:0; line-height:1;
     }
@@ -1213,6 +1213,7 @@
       lfm_auth_waiting:  'Setujui myRadio di tab Last.fm yang baru terbuka, lalu ketuk tombol di bawah.',
       lfm_auth_confirm:  'Sudah Disetujui ✓',
       lfm_disconnect:    'Putuskan Koneksi',
+      lfm_view_profile:  'Lihat Profil ↗',
       lfm_scrobbles:     'lagu disubmit sesi ini',
       lfm_scrobble_fail: 'Gagal submit ke Last.fm',
       lfm_scrobble_ok:   '✓ Tersubmit ke Last.fm',
@@ -1279,6 +1280,7 @@
       lfm_auth_waiting:  'Approve myRadio on the Last.fm tab that just opened, then tap the button below.',
       lfm_auth_confirm:  'I\'ve Approved ✓',
       lfm_disconnect:    'Disconnect',
+      lfm_view_profile:  'View Profile ↗',
       lfm_scrobbles:     'songs submitted this session',
       lfm_scrobble_fail: 'Failed to submit to Last.fm',
       lfm_scrobble_ok:   '✓ Submitted to Last.fm',
@@ -2406,6 +2408,12 @@
     fadingVol  = false;
     savedVols  = {};
     sleepEnd   = 0;
+    // Reset session timer
+    sessionSeconds = 0;
+    if (sessionTimeEl) sessionTimeEl.textContent = fmtSessionTime(0);
+    // Reset data usage counter
+    totalBytes = 0;
+    if (dataUsageEl) dataUsageEl.textContent = '0 KB';
     // Make absolutely sure all sliders are at 100% and unlocked
     STATIONS.forEach(function(id) {
       const audio  = $('audio-' + id);
@@ -2638,6 +2646,7 @@
           '<span class="lfm-username">@' + escHtml(lfm.username || '') + '</span>' +
           '<span class="lfm-count">' + lfm.scrobbleCount + ' ' + T.lfm_scrobbles + '</span>' +
         '</div>' +
+        '<a class="lfm-btn primary" href="https://www.last.fm/user/' + encodeURIComponent(lfm.username || '') + '" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:0;">' + T.lfm_view_profile + '</a>' +
         '<p class="sw-info">' + T.lfm_connected_info + '</p>' +
         '<button class="lfm-btn danger" style="margin-top:4px;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
     } else if (lfm.pendingToken) {
