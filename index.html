@@ -1440,15 +1440,12 @@
       $('np-rad-listeners').textContent = nowPlaying.rad.listeners
         ? '👥 ' + nowPlaying.rad.listeners : '';
       updateSongMarquee('rad');
-      // Reset NP submit button when song changes
-      var _npBtn = $('np-lfm-rad');
-      if (_npBtn && _npBtn.classList.contains('done')) {
-        _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = '';
-      }
 
-      // Lagu berganti → catat lagu LAMA ke history
+      // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
       if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
         pushTrack('rad', { song: lastRadTrack.song, sub: lastRadTrack.dj });
+        var _npBtn = $('np-lfm-rad');
+        if (_npBtn) { _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; }
       }
       // Update "sekarang main"
       if (nowPlaying.rad.song) {
@@ -1498,11 +1495,6 @@
     $('np-lmoe-listeners').textContent = nowPlaying.lmoe.listeners
       ? '👥 ' + nowPlaying.lmoe.listeners : '';
     updateSongMarquee('lmoe');
-    // Reset NP submit button when song changes
-    var _npBtnL = $('np-lfm-lmoe');
-    if (_npBtnL && _npBtnL.classList.contains('done')) {
-      _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = '';
-    }
     // NOTE: pushTrack NOT called here — called only on real TRACK_UPDATE below
     if (!$('audio-lmoe').paused) updateMediaSession('lmoe');
   }
@@ -1553,9 +1545,11 @@
             ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
             : '';
 
-          // Lagu berganti → catat lagu LAMA ke history
+          // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
+            var _npBtnL = $('np-lfm-lmoe');
+            if (_npBtnL) { _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; }
           }
           // Update "sekarang main"
           if (newSong) lastLmoeTrack = { song: newSong, artist: newArtist };
@@ -2164,7 +2158,38 @@
   const HISTORY_MAX  = 50;
   const HIST_KEY_RAD  = 'myradio-hist-rad';
   const HIST_KEY_LMOE = 'myradio-hist-lmoe';
-  let hwActiveTab = 'rad';
+  // ── Submitted Songs — persistent across reloads & timer resets ──
+  // Keys: 'rad' | 'lmoe', values: Set of song title strings
+  const SUBMITTED_KEY = { rad: 'myradio-submitted-rad', lmoe: 'myradio-submitted-lmoe' };
+
+  function loadSubmitted(stationId) {
+    try { return new Set(JSON.parse(localStorage.getItem(SUBMITTED_KEY[stationId]) || '[]')); }
+    catch(e) { return new Set(); }
+  }
+  function saveSubmitted(stationId, set) {
+    try { localStorage.setItem(SUBMITTED_KEY[stationId], JSON.stringify([...set])); }
+    catch(e) {}
+  }
+  function isSubmitted(stationId, song) {
+    return loadSubmitted(stationId).has(song);
+  }
+  function markSubmitted(stationId, song) {
+    const set = loadSubmitted(stationId);
+    set.add(song);
+    saveSubmitted(stationId, set);
+  }
+  function clearSubmitted(stationId) {
+    try { localStorage.removeItem(SUBMITTED_KEY[stationId]); } catch(e) {}
+  }
+  // Remove submitted state for evicted songs (keeps localStorage clean)
+  function syncSubmittedToHist(stationId) {
+    const hist = loadHist(stationId);
+    const songs = new Set(hist.map(function(h) { return h.song; }));
+    const submitted = loadSubmitted(stationId);
+    var changed = false;
+    submitted.forEach(function(s) { if (!songs.has(s)) { submitted.delete(s); changed = true; } });
+    if (changed) saveSubmitted(stationId, submitted);
+  }
 
   function loadHist(id) {
     try { return JSON.parse(localStorage.getItem(id === 'rad' ? HIST_KEY_RAD : HIST_KEY_LMOE) || '[]'); }
@@ -2182,7 +2207,10 @@
     // Don't push duplicate of the very last entry
     if (hist.length && hist[0].song === entry.song) return;
     hist.unshift({ song: entry.song, sub: entry.sub || '', ts: Date.now() });
-    if (hist.length > HISTORY_MAX) hist.pop();
+    if (hist.length > HISTORY_MAX) {
+      hist.pop(); // evict oldest
+      syncSubmittedToHist(id); // clean up submitted state for evicted tracks
+    }
     saveHist(id, hist);
     // Update badge
     $('historyBadge').classList.add('visible');
@@ -2206,8 +2234,9 @@
     }
     const showLfm = lfm && lfm.sessionKey;
     list.innerHTML = hist.map(function(h, i) {
+      var done   = showLfm && isSubmitted(hwActiveTab, h.song);
       var lfmBtn = showLfm
-        ? '<button class="hw-lfm" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="' + T.lfm_submit_title + '">⊕</button>'
+        ? '<button class="hw-lfm' + (done ? ' done' : '') + '" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="' + T.lfm_submit_title + '" ' + (done ? 'disabled' : '') + '>' + (done ? '✓' : '⊕') + '</button>'
         : '';
       return '<div class="hw-item">' +
         '<div class="hw-item-top">' +
@@ -2266,6 +2295,9 @@
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
+      btn.disabled = true;
+      // Persist ✓ by song title — survives reloads, timer resets, re-renders
+      markSubmitted(stationId, h.song);
     } else {
       btn.textContent = '⊕';
       btn.style.opacity = '';
@@ -2312,6 +2344,7 @@
 
   function clearHistory() {
     saveHist(hwActiveTab, []);
+    clearSubmitted(hwActiveTab);
     renderHistory();
   }
 
@@ -2712,6 +2745,8 @@
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
+      // Mark by song title — when song moves to history, it will show ✓ there too
+      markSubmitted(id, np.song);
     } else {
       btn.textContent = '⊕';
       btn.style.opacity = '';
