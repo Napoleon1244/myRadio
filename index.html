@@ -2722,19 +2722,23 @@
     var np = nowPlaying[id];
     if (!np || !np.song) return;
 
+    // Snapshot strings NOW before any async — poll can update nowPlaying during await
+    var songSnapshot   = np.song;
+    var artistSnapshot = np.artist || '';
+
     var track, artist;
     if (id === 'lmoe') {
-      track  = np.song;
-      artist = np.artist || '';
+      track  = songSnapshot;
+      artist = artistSnapshot;
     } else {
       // r/a/dio: parse "Artist - Title"
-      var sep = np.song.indexOf(' - ');
-      if (sep > 2 && sep < np.song.length - 3) {
-        artist = np.song.slice(0, sep).trim();
-        track  = np.song.slice(sep + 3).trim();
-        if (artist.length < 2 || track.length < 2) { track = np.song; artist = ''; }
+      var sep = songSnapshot.indexOf(' - ');
+      if (sep > 2 && sep < songSnapshot.length - 3) {
+        artist = songSnapshot.slice(0, sep).trim();
+        track  = songSnapshot.slice(sep + 3).trim();
+        if (artist.length < 2 || track.length < 2) { track = songSnapshot; artist = ''; }
       } else {
-        track = np.song; artist = '';
+        track = songSnapshot; artist = '';
       }
     }
 
@@ -2746,8 +2750,8 @@
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
-      // Mark by song title — when song moves to history, it will show ✓ there too
-      markSubmitted(id, np.song);
+      // Mark by snapshot — safe even if nowPlaying changed during await
+      markSubmitted(id, songSnapshot);
     } else {
       btn.textContent = '⊕';
       btn.style.opacity = '';
