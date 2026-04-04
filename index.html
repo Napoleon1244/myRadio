@@ -834,8 +834,7 @@
 
   <!-- ASCII Art: full width -->
   <div class="ascii-wrap">
-    <img class="ascii-img" id="asciiImg"
-      src="https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png" alt="ascii art">
+    <img class="ascii-img" id="asciiImg" src="" alt="ascii art">
   </div>
 
   <!-- Info panel: side by side -->
@@ -1117,6 +1116,15 @@
   const ASCII_LIGHT = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png';
   const ASCII_DARK  = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/image%20(1).png';
 
+  // BUG FIX #1: isDark must be resolved BEFORE the preload IIFE uses it.
+  // Previously, let isDark was declared on line ~1327 (after this IIFE), causing
+  // a Temporal Dead Zone ReferenceError that crashed the entire script.
+  let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  (function() {
+    const saved = localStorage.getItem('myradio-theme');
+    if (saved) isDark = saved === 'dark';
+  })();
+
   // Preload only the active theme image at startup — lazy-load the other on first theme switch
   (function preload() {
     const img = new Image();
@@ -1324,9 +1332,8 @@
   const toggleBtn     = document.getElementById('themeToggle');
   const asciiImg      = document.getElementById('asciiImg');
   const themeColorMeta= document.getElementById('themeColorMeta');
-  let isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const savedTheme    = localStorage.getItem('myradio-theme');
-  if (savedTheme) isDark = savedTheme === 'dark';
+  // isDark is already declared and resolved at the top of the script (before preload IIFE).
+  // Do NOT re-declare it here — that was Bug #1.
 
   function applyTheme(dark) {
     isDark = dark;
@@ -1881,7 +1888,7 @@
   const twInfo       = $('twInfo');
   const timerBadge   = $('timerBadge');
 
-  function openTimerWidget()  { closeHistoryWidget(); closeSettingsWidget(); $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
+  function openTimerWidget()  { closeHistoryWidget(); closeSettingsWidget(); $('wwOverlay') && $('wwOverlay').classList.remove('open'); $('timerWidget').classList.add('open'); $('timerOverlay').classList.add('open'); }
   function closeTimerWidget() { $('timerWidget').classList.remove('open'); $('timerOverlay').classList.remove('open'); }
 
   function fmtTime(ms) {
@@ -2189,6 +2196,11 @@
   const HIST_KEY_RAD  = 'myradio-hist-rad';
   const HIST_KEY_LMOE = 'myradio-hist-lmoe';
   let hwActiveTab = 'rad';
+
+  // BUG FIX #3: historyWidget must be declared BEFORE pushTrack uses it.
+  // Previously declared below pushTrack — potential TDZ crash on fast connections.
+  const historyWidget  = $('historyWidget');
+  const historyOverlay = $('historyOverlay');
   // ── Submitted Songs — persistent across reloads & timer resets ──
   // Keys: 'rad' | 'lmoe', values: Set of song title strings
   const SUBMITTED_KEY = { rad: 'myradio-submitted-rad', lmoe: 'myradio-submitted-lmoe' };
@@ -2383,12 +2395,10 @@
     renderHistory();
   }
 
-  const historyWidget  = $('historyWidget');
-  const historyOverlay = $('historyOverlay');
-
   function openHistoryWidget() {
     closeTimerWidget();
     closeSettingsWidget();
+    $('wwOverlay') && $('wwOverlay').classList.remove('open');
     renderHistory();
     historyWidget.classList.add('open');
     historyOverlay.classList.add('open');
@@ -2506,6 +2516,7 @@
   // ══════════════════════════════════════════════════════
   function openSettingsWidget() {
     closeTimerWidget(); closeHistoryWidget();
+    $('wwOverlay') && $('wwOverlay').classList.remove('open');
     lfmRenderSection();
     $('settingsWidget').classList.add('open');
     $('settingsOverlay').classList.add('open');
