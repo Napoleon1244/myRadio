@@ -1117,14 +1117,12 @@
   const ASCII_LIGHT = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png';
   const ASCII_DARK  = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/image%20(1).png';
 
-  // Preload both images into browser cache immediately
-  // so switching theme is instant after first load (no re-request)
+  // Preload only the active theme image at startup — lazy-load the other on first theme switch
   (function preload() {
-    [ASCII_LIGHT, ASCII_DARK].forEach(function(url) {
-      const img = new Image();
-      img.src = url;
-    });
+    const img = new Image();
+    img.src = isDark ? ASCII_DARK : ASCII_LIGHT;
   })();
+  let _otherThemePreloaded = false;
   const PHOTO_ICON   = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/20260303-204321.png';
   const RAD_STREAMS  = [
     'https://relay1.r-a-d.io/main.mp3',
@@ -1336,8 +1334,13 @@
     asciiImg.src = dark ? ASCII_DARK : ASCII_LIGHT;
     themeColorMeta.setAttribute('content', dark ? '#141210' : '#6b4fa0');
     localStorage.setItem('myradio-theme', dark ? 'dark' : 'light');
-    // Keep settings checkbox in sync
     if (toggleBtn) toggleBtn.checked = dark;
+    // Lazy-preload the other theme image on first switch
+    if (!_otherThemePreloaded) {
+      _otherThemePreloaded = true;
+      const img = new Image();
+      img.src = dark ? ASCII_LIGHT : ASCII_DARK;
+    }
   }
   applyTheme(isDark);
   if (toggleBtn) toggleBtn.addEventListener('change', () => applyTheme(toggleBtn.checked));
@@ -1445,7 +1448,10 @@
       if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
         pushTrack('rad', { song: lastRadTrack.song, sub: lastRadTrack.dj });
         var _npBtn = $('np-lfm-rad');
-        if (_npBtn) { _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; }
+        if (_npBtn) { _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; _npBtn.disabled = false; }
+        npSongStarted.rad = Date.now(); // reset 30s guard for new song
+      } else if (nowPlaying.rad.song && !lastRadTrack) {
+        npSongStarted.rad = Date.now(); // first song on load
       }
       // Update "sekarang main"
       if (nowPlaying.rad.song) {
@@ -1549,7 +1555,10 @@
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
             var _npBtnL = $('np-lfm-lmoe');
-            if (_npBtnL) { _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; }
+            if (_npBtnL) { _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; _npBtnL.disabled = false; }
+            npSongStarted.lmoe = Date.now(); // reset 30s guard for new song
+          } else if (newSong && !lastLmoeTrack) {
+            npSongStarted.lmoe = Date.now(); // first song on load
           }
           // Update "sekarang main"
           if (newSong) lastLmoeTrack = { song: newSong, artist: newArtist };
@@ -1630,9 +1639,13 @@
     $('info-card-' + id).classList.remove('active');
   }
   function setError(id, msg) {
-    setStopped(id);
+    $('icon-'   + id).innerHTML = PLAY;
+    $('btn-'    + id).classList.remove('playing');
+    $('dot-'    + id).classList.remove('live');
     $('dot-'    + id).classList.add('error');
     $('status-' + id).textContent = msg || T.status_failed;
+    $('card-'   + id).classList.remove('playing');
+    $('info-card-' + id).classList.remove('active');
   }
   function tryStream(id, streams, idx) {
     const audio = $('audio-' + id);
@@ -1669,10 +1682,28 @@
     return '🔊';
   }
   function setVolume(id, val) {
-    $('audio-' + id).volume = parseFloat(val);
+    const v = parseFloat(val);
+    $('audio-' + id).volume = v;
     const icon = $('volicon-' + id);
     if (icon) icon.textContent = getVolIcon(val);
+    // Persist volume per station
+    try { localStorage.setItem('myradio-vol-' + id, String(v)); } catch(e) {}
   }
+
+  // Restore persisted volumes on load
+  STATIONS.forEach(function(id) {
+    const saved = localStorage.getItem('myradio-vol-' + id);
+    if (saved !== null) {
+      const v = parseFloat(saved);
+      if (!isNaN(v) && v >= 0 && v <= 1) {
+        $('audio-' + id).volume = v;
+        const slider = $('vol-' + id);
+        if (slider) slider.value = v;
+        const icon = $('volicon-' + id);
+        if (icon) icon.textContent = getVolIcon(v);
+      }
+    }
+  });
 
   function switchToStation(id) {
     stopOthers(id);
@@ -2134,8 +2165,7 @@
       : 'Session duration: <strong>' + dur + '</strong> — data used: <strong>' + fmtBytes(totalBytes) + '</strong>.');
     $('seBtn').textContent      = T.timer_ended_btn;
     $('sessionEndScreen').classList.add('show');
-
-    setTimeout(function() { timerFired = false; }, 400);
+    // timerFired stays true until user dismisses — seBtn handler resets it
   }
 
 
@@ -2267,17 +2297,20 @@
 
   async function hwSubmitLfm(btn, idx, stationId) {
     if (!lfm || !lfm.sessionKey) return;
+    if (_lfmSubmitting) {
+      showToast(LANG === 'id' ? 'Tunggu — sedang mengirim lagu sebelumnya…' : 'Please wait — previous submission in progress…');
+      return;
+    }
     const hist = loadHist(stationId);
     const h = hist[idx];
     if (!h) return;
 
-    // Parse track/artist from song string
+    // Parse track/artist
     var track, artist;
     if (stationId === 'lmoe') {
       track  = h.song;
       artist = h.sub || '';
     } else {
-      // r/a/dio: "Artist - Title" format
       var sep = h.song.indexOf(' - ');
       if (sep > 2 && sep < h.song.length - 3) {
         artist = h.song.slice(0, sep).trim();
@@ -2288,16 +2321,17 @@
       }
     }
 
+    _lfmSubmitting = true;
     btn.textContent = '…';
     btn.style.opacity = '1';
     const ts = Math.floor((h.ts || Date.now()) / 1000);
     console.log('[myRadio] Submitting to Last.fm:', { track, artist, ts });
     const ok = await lfmScrobble(track, artist, ts);
+    _lfmSubmitting = false;
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
       btn.disabled = true;
-      // Persist ✓ by song title — survives reloads, timer resets, re-renders
       markSubmitted(stationId, h.song);
     } else {
       btn.textContent = '⊕';
@@ -2402,6 +2436,7 @@
 
   function startDataTracking() {
     if (trackTimer) return;
+    let uiTick = 0;
     trackTimer = setInterval(function() {
       var added = 0;
       STATIONS.forEach(function(id) {
@@ -2411,7 +2446,9 @@
       });
       if (added > 0) {
         totalBytes += added;
-        dataUsageEl.textContent = fmtBytes(totalBytes);
+        uiTick++;
+        // Update UI every 5 seconds to reduce DOM churn
+        if (uiTick >= 5) { uiTick = 0; dataUsageEl.textContent = fmtBytes(totalBytes); }
       }
     }, 1000);
   }
@@ -2558,6 +2595,12 @@
   }
 
   // ── Manual scrobble — submit a track directly to Last.fm
+  // ── Submit queue — one submission at a time, must wait for previous to finish ──
+  let _lfmSubmitting = false;
+  // Track when current NP song started playing (for 30s minimum guard)
+  const npSongStarted = { rad: 0, lmoe: 0 };
+  const NP_MIN_LISTEN_MS = 30000; // must have 30s on song before NP submit allowed
+
   async function lfmScrobble(track, artist, timestamp) {
     if (!lfm.sessionKey || !track) return false;
     try {
@@ -2722,7 +2765,23 @@
     var np = nowPlaying[id];
     if (!np || !np.song) return;
 
-    // Snapshot strings NOW before any async — poll can update nowPlaying during await
+    // 30s minimum listen guard — prevents scrobbling a song that just started
+    var elapsed = Date.now() - (npSongStarted[id] || 0);
+    if (elapsed < NP_MIN_LISTEN_MS) {
+      var remaining = Math.ceil((NP_MIN_LISTEN_MS - elapsed) / 1000);
+      showToast(LANG === 'id'
+        ? 'Dengerin dulu ' + remaining + 's lagi sebelum bisa di-submit'
+        : 'Listen for ' + remaining + 's more before submitting');
+      return;
+    }
+
+    // Submit queue — one at a time
+    if (_lfmSubmitting) {
+      showToast(LANG === 'id' ? 'Tunggu — sedang mengirim lagu sebelumnya…' : 'Please wait — previous submission in progress…');
+      return;
+    }
+
+    // Snapshot strings NOW — poll can update nowPlaying during await
     var songSnapshot   = np.song;
     var artistSnapshot = np.artist || '';
 
@@ -2731,7 +2790,6 @@
       track  = songSnapshot;
       artist = artistSnapshot;
     } else {
-      // r/a/dio: parse "Artist - Title"
       var sep = songSnapshot.indexOf(' - ');
       if (sep > 2 && sep < songSnapshot.length - 3) {
         artist = songSnapshot.slice(0, sep).trim();
@@ -2742,15 +2800,16 @@
       }
     }
 
+    _lfmSubmitting = true;
     btn.textContent = '…';
     btn.style.opacity = '1';
     console.log('[myRadio] NP submit to Last.fm:', { id, track, artist });
     var ts = Math.floor(Date.now() / 1000);
     var ok = await lfmScrobble(track, artist, ts);
+    _lfmSubmitting = false;
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
-      // Mark by snapshot — safe even if nowPlaying changed during await
       markSubmitted(id, songSnapshot);
     } else {
       btn.textContent = '⊕';
