@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myradio-v20';
+const CACHE_NAME = 'myradio-v21'; // bumped: forces all clients to drop v20 broken cache
 const ASSETS = [
   './',
   './index.html',

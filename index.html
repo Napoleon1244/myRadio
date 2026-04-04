@@ -1227,6 +1227,9 @@
       lfm_connected_info: 'Ketuk ⊕ di samping lagu di riwayat putar untuk submit ke Last.fm.',
       lfm_submit_title:  'Submit ke Last.fm',
       lfm_submitted:     '✓',
+      lfm_reset_submitted:      'Reset Tanda ✓',
+      lfm_reset_submitted_info: 'Hapus semua tanda ✓ dari lagu yang sudah pernah di-submit. Gunakan jika checklist error atau tidak sinkron.',
+      lfm_reset_submitted_done: '✓ Semua tanda submit direset',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1294,6 +1297,9 @@
       lfm_connected_info: 'Tap ⊕ next to any song in your history to submit it to Last.fm.',
       lfm_submit_title:  'Submit to Last.fm',
       lfm_submitted:     '✓',
+      lfm_reset_submitted:      'Reset ✓ Marks',
+      lfm_reset_submitted_info: 'Clears all submitted ✓ checkmarks. Use this if sync is broken or out of date.',
+      lfm_reset_submitted_done: '✓ All submit marks cleared',
     }
   };
 
@@ -1451,11 +1457,18 @@
         ? '👥 ' + nowPlaying.rad.listeners : '';
       updateSongMarquee('rad');
 
-      // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
+      // Lagu berganti → catat lagu LAMA ke history + update NP submit button
       if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
         pushTrack('rad', { song: lastRadTrack.song, sub: lastRadTrack.dj });
         var _npBtn = $('np-lfm-rad');
-        if (_npBtn) { _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; _npBtn.disabled = false; }
+        if (_npBtn) {
+          // Kalau lagu BARU sudah pernah di-submit sebelumnya, langsung tampilkan ✓
+          if (isSubmitted('rad', nowPlaying.rad.song)) {
+            _npBtn.textContent = '✓'; _npBtn.classList.add('done'); _npBtn.style.opacity = '1'; _npBtn.disabled = true;
+          } else {
+            _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; _npBtn.disabled = false;
+          }
+        }
         npSongStarted.rad = Date.now(); // reset 30s guard for new song
       } else if (nowPlaying.rad.song && !lastRadTrack) {
         npSongStarted.rad = Date.now(); // first song on load
@@ -1467,9 +1480,19 @@
       }
 
       if (!$('audio-rad').paused) updateMediaSession('rad');
+      radApiFailCount = 0; // reset on success
 
-    } catch (_) { /* silent fail — no UI change, keep last known state */ }
+    } catch (e) {
+      // Silent fail on first error to avoid flicker on brief network hiccup
+      // But show error state after 3 consecutive failures (on slow/VPN connections)
+      radApiFailCount = (radApiFailCount || 0) + 1;
+      if (radApiFailCount >= 3) {
+        $('np-rad-song').textContent = T.status_failed;
+        $('np-rad-dj').textContent   = T.dj_label + '—';
+      }
+    }
   }
+  let radApiFailCount = 0;
   fetchRadAPI();
 
   // Network-aware polling: slow connection = less frequent = save quota
@@ -1534,6 +1557,29 @@
     lmoeWS.onopen = function() {
       lmoeReconDelay = 3000; // reset delay setelah sukses
       lmoeWS.send(JSON.stringify({ op: 0, d: { auth: null } }));
+      // Fetch initial now-playing immediately via REST so metadata shows at once
+      // (WS only pushes TRACK_UPDATE on *song change*, not on connect)
+      fetch('https://listen.moe/api/v2/songs/playing', { mode: 'cors' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(json) {
+          if (!json || !json.song) return;
+          var song      = json.song;
+          var initSong  = song.titleRomaji || song.title || '';
+          var initArtist = song.artists
+            ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
+            : '';
+          if (initSong && !nowPlaying.lmoe.song) {
+            nowPlaying.lmoe.song   = initSong;
+            nowPlaying.lmoe.artist = initArtist;
+            if (!lastLmoeTrack) {
+              lastLmoeTrack = { song: initSong, artist: initArtist };
+              npSongStarted.lmoe = Date.now();
+              try { localStorage.setItem('myradio-session-lmoe', JSON.stringify(lastLmoeTrack)); } catch(e) {}
+            }
+            updateLmoeUI();
+          }
+        })
+        .catch(function() {}); // best-effort, WS will update on next song change anyway
     };
 
     lmoeWS.onmessage = function(msg) {
@@ -1558,11 +1604,18 @@
             ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
             : '';
 
-          // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
+          // Lagu berganti → catat lagu LAMA ke history + update NP submit button
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
             var _npBtnL = $('np-lfm-lmoe');
-            if (_npBtnL) { _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; _npBtnL.disabled = false; }
+            if (_npBtnL) {
+              // Kalau lagu BARU sudah pernah di-submit sebelumnya, langsung tampilkan ✓
+              if (isSubmitted('lmoe', newSong)) {
+                _npBtnL.textContent = '✓'; _npBtnL.classList.add('done'); _npBtnL.style.opacity = '1'; _npBtnL.disabled = true;
+              } else {
+                _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; _npBtnL.disabled = false;
+              }
+            }
             npSongStarted.lmoe = Date.now(); // reset 30s guard for new song
           } else if (newSong && !lastLmoeTrack) {
             npSongStarted.lmoe = Date.now(); // first song on load
@@ -2713,6 +2766,22 @@
     if (historyWidget.classList.contains('open')) renderHistory();
   }
 
+  // ── Reset all submitted ✓ checkmarks (both stations) ──
+  function resetAllSubmitted() {
+    clearSubmitted('rad');
+    clearSubmitted('lmoe');
+    // Reset NP buttons back to ⊕ if they're visible
+    ['rad', 'lmoe'].forEach(function(id) {
+      var btn = $('np-lfm-' + id);
+      if (btn && btn.style.display !== 'none') {
+        btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
+      }
+    });
+    // Re-render history if open so ✓ icons update immediately
+    if (historyWidget.classList.contains('open')) renderHistory();
+    showToast(T.lfm_reset_submitted_done);
+  }
+
   var _lfmBusy = false;
   function lfmSetBusy(b) { _lfmBusy = b; lfmRenderSection(); }
 
@@ -2736,7 +2805,11 @@
         '</div>' +
         '<a class="lfm-btn primary" href="https://www.last.fm/user/' + encodeURIComponent(lfm.username || '') + '" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:0;">' + T.lfm_view_profile + '</a>' +
         '<p class="sw-info">' + T.lfm_connected_info + '</p>' +
-        '<button class="lfm-btn danger" style="margin-top:4px;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
+        '<div class="lfm-divider" style="margin:4px 0;"></div>' +
+        '<p class="sw-info" style="color:var(--dim);margin-bottom:2px;">' + T.lfm_reset_submitted_info + '</p>' +
+        '<button class="lfm-btn danger" style="margin-top:2px;" onclick="resetAllSubmitted()">' + T.lfm_reset_submitted + '</button>' +
+        '<div class="lfm-divider" style="margin:6px 0;"></div>' +
+        '<button class="lfm-btn danger" style="margin-top:0;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
     } else if (lfm.pendingToken) {
       bodyHtml =
         '<div class="lfm-auth-hint">' + T.lfm_auth_waiting + '</div>' +
@@ -2760,10 +2833,18 @@
       var btn = $('np-lfm-' + id);
       if (btn) {
         btn.style.display = show ? 'inline' : 'none';
-        btn.textContent = '⊕';
-        btn.classList.remove('done');
-        btn.style.opacity = '';
         btn.style.pointerEvents = '';
+        if (show) {
+          // Restore submitted state for whatever song is currently playing
+          var curSong = nowPlaying[id] && nowPlaying[id].song;
+          if (curSong && isSubmitted(id, curSong)) {
+            btn.textContent = '✓'; btn.classList.add('done'); btn.style.opacity = '1'; btn.disabled = true;
+          } else {
+            btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
+          }
+        } else {
+          btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
+        }
       }
     });
   }
