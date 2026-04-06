@@ -1034,7 +1034,7 @@
         <span class="sw-thumb"></span>
       </label>
     </div>
-    <p class="sw-info" data-i18n="settings_theme_info">Tampilan gelap lebih nyaman di malam hari — preferensi disimpan otomatis.</p>
+    <p class="sw-info" data-i18n="settings_theme_info">Preferensi tema disimpan otomatis.</p>
   </div>
 
   <div class="lfm-divider"></div>
@@ -1438,6 +1438,7 @@
 
   // ── r/a/dio API (polling setiap 10 detik) ──
   let lastRadTrack = null;  // { song, dj } — lagu yang sedang/terakhir main
+  let radApiFailCount = 0;  // consecutive fail counter — moved here (Bug B fix: was declared after use)
 
   async function fetchRadAPI() {
     try {
@@ -1485,14 +1486,13 @@
     } catch (e) {
       // Silent fail on first error to avoid flicker on brief network hiccup
       // But show error state after 3 consecutive failures (on slow/VPN connections)
-      radApiFailCount = (radApiFailCount || 0) + 1;
+      radApiFailCount++;
       if (radApiFailCount >= 3) {
         $('np-rad-song').textContent = T.status_failed;
         $('np-rad-dj').textContent   = T.dj_label + '—';
       }
     }
   }
-  let radApiFailCount = 0;
   fetchRadAPI();
 
   // Network-aware polling: slow connection = less frequent = save quota
@@ -1654,9 +1654,9 @@
   // Reconnect saat app kembali ke foreground
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
-      // Foreground: refresh immediately + ensure polling running
+      // Foreground: refresh immediately — do NOT restart the poll interval,
+      // that would reset the timer and delay the next scheduled poll unnecessarily.
       fetchRadAPI();
-      startRadPoll();
       if (!lmoeWS || lmoeWS.readyState > 1) connectLmoeWS();
     }
     // Background: polling intentionally kept running.
@@ -2329,8 +2329,10 @@
       return;
     }
     const showLfm = lfm && lfm.sessionKey;
+    // Cache submitted Set once — avoids up to 50 localStorage reads per render
+    const submittedSet = showLfm ? loadSubmitted(hwActiveTab) : null;
     list.innerHTML = hist.map(function(h, i) {
-      var done   = showLfm && isSubmitted(hwActiveTab, h.song);
+      var done   = showLfm && submittedSet.has(h.song);
       var lfmBtn = showLfm
         ? '<button class="hw-lfm' + (done ? ' done' : '') + '" data-idx="' + i + '" data-tab="' + escHtml(hwActiveTab) + '" title="' + T.lfm_submit_title + '" ' + (done ? 'disabled' : '') + '>' + (done ? '✓' : '⊕') + '</button>'
         : '';
@@ -2504,7 +2506,7 @@
       var added = 0;
       STATIONS.forEach(function(id) {
         if (isActuallyPlaying[id]) {
-          added += (BITRATE_KBPS[id] * 1000 / 8) * 1;
+          added += (BITRATE_KBPS[id] * 1024 / 8) * 1; // kbps → bytes/sec (1 kbit = 1024 bits)
         }
       });
       if (added > 0) {
@@ -2591,10 +2593,11 @@
     function hh(a,b,c,d,x,s,t) { return cmn(b^c^d,a,b,x,s,t); }
     function ii(a,b,c,d,x,s,t) { return cmn(c^(b|~d),a,b,x,s,t); }
     function hex(n) { var s='',v; for(var i=0;i<4;i++){v=(n>>>(i*8))&0xff;s+=('0'+v.toString(16)).slice(-2);} return s; }
-    str = unescape(encodeURIComponent(str));
-    var m=[]; for(var i=0;i<str.length;i++) m[i>>2]|=str.charCodeAt(i)<<((i%4)*8);
-    m[str.length>>2]|=0x80<<((str.length%4)*8);
-    m[(((str.length+8)>>6)<<4)+14]=str.length*8;
+    // Convert string to UTF-8 bytes (replaces deprecated unescape+encodeURIComponent pattern)
+    var utf8 = new TextEncoder().encode(str);
+    var m=[]; for(var i=0;i<utf8.length;i++) m[i>>2]|=utf8[i]<<((i%4)*8);
+    m[utf8.length>>2]|=0x80<<((utf8.length%4)*8);
+    m[(((utf8.length+8)>>6)<<4)+14]=utf8.length*8;
     var a=1732584193,b=-271733879,c=-1732584194,d=271733878;
     for(var i=0;i<m.length;i+=16){
       var A=a,B=b,C=c,D=d;
@@ -2902,6 +2905,7 @@
     if (ok) {
       btn.textContent = '✓';
       btn.classList.add('done');
+      btn.disabled = true;
       markSubmitted(id, songSnapshot);
     } else {
       btn.textContent = '⊕';
