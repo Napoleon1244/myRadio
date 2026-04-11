@@ -1227,9 +1227,6 @@
       lfm_connected_info: 'Ketuk ⊕ di samping lagu di riwayat putar untuk submit ke Last.fm.',
       lfm_submit_title:  'Submit ke Last.fm',
       lfm_submitted:     '✓',
-      lfm_reset_submitted:      'Reset Tanda ✓',
-      lfm_reset_submitted_info: 'Hapus semua tanda ✓ dari lagu yang sudah pernah di-submit. Gunakan jika checklist error atau tidak sinkron.',
-      lfm_reset_submitted_done: '✓ Semua tanda submit direset',
     },
     en: {
       tagline:       'Direct Stream Radio',
@@ -1297,9 +1294,6 @@
       lfm_connected_info: 'Tap ⊕ next to any song in your history to submit it to Last.fm.',
       lfm_submit_title:  'Submit to Last.fm',
       lfm_submitted:     '✓',
-      lfm_reset_submitted:      'Reset ✓ Marks',
-      lfm_reset_submitted_info: 'Clears all submitted ✓ checkmarks. Use this if sync is broken or out of date.',
-      lfm_reset_submitted_done: '✓ All submit marks cleared',
     }
   };
 
@@ -1458,18 +1452,11 @@
         ? '👥 ' + nowPlaying.rad.listeners : '';
       updateSongMarquee('rad');
 
-      // Lagu berganti → catat lagu LAMA ke history + update NP submit button
+      // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
       if (nowPlaying.rad.song && lastRadTrack && nowPlaying.rad.song !== lastRadTrack.song) {
         pushTrack('rad', { song: lastRadTrack.song, sub: lastRadTrack.dj });
         var _npBtn = $('np-lfm-rad');
-        if (_npBtn) {
-          // Kalau lagu BARU sudah pernah di-submit sebelumnya, langsung tampilkan ✓
-          if (isSubmitted('rad', nowPlaying.rad.song)) {
-            _npBtn.textContent = '✓'; _npBtn.classList.add('done'); _npBtn.style.opacity = '1'; _npBtn.disabled = true;
-          } else {
-            _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; _npBtn.disabled = false;
-          }
-        }
+        if (_npBtn) { _npBtn.textContent = '⊕'; _npBtn.classList.remove('done'); _npBtn.style.opacity = ''; _npBtn.disabled = false; }
         npSongStarted.rad = Date.now(); // reset 30s guard for new song
       } else if (nowPlaying.rad.song && !lastRadTrack) {
         npSongStarted.rad = Date.now(); // first song on load
@@ -1604,18 +1591,11 @@
             ? song.artists.map(function(a){ return a.nameRomaji || a.name; }).filter(Boolean).join(', ')
             : '';
 
-          // Lagu berganti → catat lagu LAMA ke history + update NP submit button
+          // Lagu berganti → catat lagu LAMA ke history + reset NP submit button
           if (newSong && lastLmoeTrack && newSong !== lastLmoeTrack.song) {
             pushTrack('lmoe', { song: lastLmoeTrack.song, sub: lastLmoeTrack.artist });
             var _npBtnL = $('np-lfm-lmoe');
-            if (_npBtnL) {
-              // Kalau lagu BARU sudah pernah di-submit sebelumnya, langsung tampilkan ✓
-              if (isSubmitted('lmoe', newSong)) {
-                _npBtnL.textContent = '✓'; _npBtnL.classList.add('done'); _npBtnL.style.opacity = '1'; _npBtnL.disabled = true;
-              } else {
-                _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; _npBtnL.disabled = false;
-              }
-            }
+            if (_npBtnL) { _npBtnL.textContent = '⊕'; _npBtnL.classList.remove('done'); _npBtnL.style.opacity = ''; _npBtnL.disabled = false; }
             npSongStarted.lmoe = Date.now(); // reset 30s guard for new song
           } else if (newSong && !lastLmoeTrack) {
             npSongStarted.lmoe = Date.now(); // first song on load
@@ -2086,13 +2066,23 @@
     t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--ink);color:var(--paper);font-size:0.65rem;padding:8px 16px;border-radius:99px;opacity:0;transition:opacity 0.3s ease;white-space:nowrap;pointer-events:none;letter-spacing:0.02em;';
     t.textContent = msg;
     document.body.appendChild(t);
+    let fadeTimer, removeTimer;
     requestAnimationFrame(function() {
       t.style.opacity = '1';
-      setTimeout(function() {
+      fadeTimer = setTimeout(function() {
         t.style.opacity = '0';
-        setTimeout(function() { if (t.parentNode) t.remove(); }, 350);
+        removeTimer = setTimeout(function() { if (t.parentNode) t.remove(); }, 350);
       }, 3000);
     });
+    // Clean up immediately if page hides before toast completes
+    function onHide() {
+      if (document.hidden) {
+        clearTimeout(fadeTimer); clearTimeout(removeTimer);
+        if (t.parentNode) t.remove();
+        document.removeEventListener('visibilitychange', onHide);
+      }
+    }
+    document.addEventListener('visibilitychange', onHide);
   }
 
 
@@ -2117,7 +2107,11 @@
 
     loading.classList.remove('hide');
     iframe.src = WEB_URLS[id];
-    iframe.onload = function() { loading.classList.add('hide'); };
+    iframe.onload = function() {
+      // Guard: ignore the about:blank load fired when closing
+      if (iframe.src === 'about:blank') return;
+      loading.classList.add('hide');
+    };
 
     overlay.classList.add('open');
     overlay.dataset.station = id;
@@ -2197,6 +2191,11 @@
 
     // Save currently playing tracks to history before closing
     saveCurrentTracks();
+    // Clear in-memory submitted state — session is over
+    clearSubmitted('rad');
+    clearSubmitted('lmoe');
+    // Re-render history if open so ✓ icons clear immediately
+    if (historyWidget.classList.contains('open')) renderHistory();
     // Explicitly clear session keys — tracks already committed to persistent history above.
     // Prevents rescueSession() on next launch from attempting (harmless but redundant) re-push.
     try { localStorage.removeItem('myradio-session-rad');  } catch(e) {}
@@ -2254,38 +2253,11 @@
   // Previously declared below pushTrack — potential TDZ crash on fast connections.
   const historyWidget  = $('historyWidget');
   const historyOverlay = $('historyOverlay');
-  // ── Submitted Songs — persistent across reloads & timer resets ──
-  // Keys: 'rad' | 'lmoe', values: Set of song title strings
-  const SUBMITTED_KEY = { rad: 'myradio-submitted-rad', lmoe: 'myradio-submitted-lmoe' };
-
-  function loadSubmitted(stationId) {
-    try { return new Set(JSON.parse(localStorage.getItem(SUBMITTED_KEY[stationId]) || '[]')); }
-    catch(e) { return new Set(); }
-  }
-  function saveSubmitted(stationId, set) {
-    try { localStorage.setItem(SUBMITTED_KEY[stationId], JSON.stringify([...set])); }
-    catch(e) {}
-  }
-  function isSubmitted(stationId, song) {
-    return loadSubmitted(stationId).has(song);
-  }
-  function markSubmitted(stationId, song) {
-    const set = loadSubmitted(stationId);
-    set.add(song);
-    saveSubmitted(stationId, set);
-  }
-  function clearSubmitted(stationId) {
-    try { localStorage.removeItem(SUBMITTED_KEY[stationId]); } catch(e) {}
-  }
-  // Remove submitted state for evicted songs (keeps localStorage clean)
-  function syncSubmittedToHist(stationId) {
-    const hist = loadHist(stationId);
-    const songs = new Set(hist.map(function(h) { return h.song; }));
-    const submitted = loadSubmitted(stationId);
-    var changed = false;
-    submitted.forEach(function(s) { if (!songs.has(s)) { submitted.delete(s); changed = true; } });
-    if (changed) saveSubmitted(stationId, submitted);
-  }
+  // ── Submitted Songs — in-memory only (resets on reload/exit, persists within session) ──
+  const submittedSongs = { rad: new Set(), lmoe: new Set() };
+  function isSubmitted(stationId, song)  { return submittedSongs[stationId].has(song); }
+  function markSubmitted(stationId, song) { submittedSongs[stationId].add(song); }
+  function clearSubmitted(stationId)     { submittedSongs[stationId].clear(); }
 
   function loadHist(id) {
     try { return JSON.parse(localStorage.getItem(id === 'rad' ? HIST_KEY_RAD : HIST_KEY_LMOE) || '[]'); }
@@ -2305,7 +2277,6 @@
     hist.unshift({ song: entry.song, sub: entry.sub || '', ts: Date.now() });
     if (hist.length > HISTORY_MAX) {
       hist.pop(); // evict oldest
-      syncSubmittedToHist(id); // clean up submitted state for evicted tracks
     }
     saveHist(id, hist);
     // Update badge
@@ -2329,8 +2300,8 @@
       return;
     }
     const showLfm = lfm && lfm.sessionKey;
-    // Cache submitted Set once — avoids up to 50 localStorage reads per render
-    const submittedSet = showLfm ? loadSubmitted(hwActiveTab) : null;
+    // Use in-memory submittedSongs Set — no localStorage reads needed
+    const submittedSet = showLfm ? submittedSongs[hwActiveTab] : null;
     list.innerHTML = hist.map(function(h, i) {
       var done   = showLfm && submittedSet.has(h.song);
       var lfmBtn = showLfm
@@ -2531,7 +2502,7 @@
     return m + ':' + String(sec).padStart(2, '0');
   }
 
-  setInterval(function() {
+  setInterval(function() { // session clock — runs for app lifetime, intentionally not cleared
     sessionSeconds++;
     if (sessionTimeEl) sessionTimeEl.textContent = fmtSessionTime(sessionSeconds);
   }, 1000);
@@ -2769,22 +2740,6 @@
     if (historyWidget.classList.contains('open')) renderHistory();
   }
 
-  // ── Reset all submitted ✓ checkmarks (both stations) ──
-  function resetAllSubmitted() {
-    clearSubmitted('rad');
-    clearSubmitted('lmoe');
-    // Reset NP buttons back to ⊕ if they're visible
-    ['rad', 'lmoe'].forEach(function(id) {
-      var btn = $('np-lfm-' + id);
-      if (btn && btn.style.display !== 'none') {
-        btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
-      }
-    });
-    // Re-render history if open so ✓ icons update immediately
-    if (historyWidget.classList.contains('open')) renderHistory();
-    showToast(T.lfm_reset_submitted_done);
-  }
-
   var _lfmBusy = false;
   function lfmSetBusy(b) { _lfmBusy = b; lfmRenderSection(); }
 
@@ -2808,11 +2763,7 @@
         '</div>' +
         '<a class="lfm-btn primary" href="https://www.last.fm/user/' + encodeURIComponent(lfm.username || '') + '" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:0;">' + T.lfm_view_profile + '</a>' +
         '<p class="sw-info">' + T.lfm_connected_info + '</p>' +
-        '<div class="lfm-divider" style="margin:4px 0;"></div>' +
-        '<p class="sw-info" style="color:var(--dim);margin-bottom:2px;">' + T.lfm_reset_submitted_info + '</p>' +
-        '<button class="lfm-btn danger" style="margin-top:2px;" onclick="resetAllSubmitted()">' + T.lfm_reset_submitted + '</button>' +
-        '<div class="lfm-divider" style="margin:6px 0;"></div>' +
-        '<button class="lfm-btn danger" style="margin-top:0;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
+        '<button class="lfm-btn danger" style="margin-top:4px;" onclick="lfmDisconnect()">' + T.lfm_disconnect + '</button>';
     } else if (lfm.pendingToken) {
       bodyHtml =
         '<div class="lfm-auth-hint">' + T.lfm_auth_waiting + '</div>' +
@@ -2836,18 +2787,11 @@
       var btn = $('np-lfm-' + id);
       if (btn) {
         btn.style.display = show ? 'inline' : 'none';
+        btn.textContent = '⊕';
+        btn.classList.remove('done');
+        btn.style.opacity = '';
+        btn.disabled = false;
         btn.style.pointerEvents = '';
-        if (show) {
-          // Restore submitted state for whatever song is currently playing
-          var curSong = nowPlaying[id] && nowPlaying[id].song;
-          if (curSong && isSubmitted(id, curSong)) {
-            btn.textContent = '✓'; btn.classList.add('done'); btn.style.opacity = '1'; btn.disabled = true;
-          } else {
-            btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
-          }
-        } else {
-          btn.textContent = '⊕'; btn.classList.remove('done'); btn.style.opacity = ''; btn.disabled = false;
-        }
       }
     });
   }
