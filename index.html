@@ -1131,7 +1131,10 @@
     img.src = isDark ? ASCII_DARK : ASCII_LIGHT;
   })();
   let _otherThemePreloaded = false;
-  const PHOTO_ICON   = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/20260303-204321.png';
+  const STATION_ICON = {
+    rad:  'https://i.ibb.co/HpNxkfC5/2453080.png',
+    lmoe: 'https://i.ibb.co/FMHCPcX/icon-ogf-CVMXWZk-Vq-VSqa6dor-G0b2k8-Hh-7u5-Hu-Nx93-RNsz0.png'
+  };
   const RAD_STREAMS  = [
     'https://relay1.r-a-d.io/main.mp3',
     'https://relay0.r-a-d.io/main.mp3',
@@ -1862,7 +1865,7 @@
       });
     }
 
-    setMeta(PHOTO_ICON); // immediate — no waiting
+    setMeta(STATION_ICON[id]); // immediate — station logo while cover fetches
 
     // Async upgrade: fetch cover and update artwork if still same song
     const songAtCall = np.song;
