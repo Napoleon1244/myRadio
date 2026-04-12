@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myradio-v21'; // bumped: forces all clients to drop v20 broken cache
+const CACHE_NAME = 'myradio-v22'; // bumped: cover art feature + itunes exclusion
 const ASSETS = [
   './',
   './index.html',
@@ -42,12 +42,14 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // Never intercept: audio streams, API calls, Last.fm, fonts
-  if (url.includes('r-a-d.io')           ||
-      url.includes('listen.moe')         ||
-      url.includes('relay')              ||
-      url.includes('audioscrobbler.com') ||
-      url.includes('last.fm')            ||
+  // Never intercept: audio streams, API calls, Last.fm, cover art sources, fonts
+  if (url.includes('r-a-d.io')             ||
+      url.includes('listen.moe')           ||
+      url.includes('relay')                ||
+      url.includes('audioscrobbler.com')   ||
+      url.includes('last.fm')              ||
+      url.includes('itunes.apple.com')     ||
+      url.includes('mzstatic.com')         ||
       url.includes('fonts.googleapis.com') ||
       url.includes('fonts.gstatic.com')) return;
 

@@ -1762,30 +1762,116 @@
       try { navigator.mediaSession.setActionHandler(a, null); } catch(e) {}
     });
   }
+  // ── Cover Art (best-effort, in-memory cache) ──
+  // Strategy: 1) Last.fm track.getInfo (key already exists)  2) iTunes Search API (no auth)
+  // Both are free, no extra keys needed. Cache in-memory — resets on reload (fine).
+  const coverCache = new Map(); // "artist|title" → url string | null
+  const LFM_EMPTY_IMG = '2a96cbd8b46e442fc41c2b86b821562f'; // Last.fm placeholder hash
+
+  async function fetchCoverArt(trackTitle, trackArtist) {
+    const key = ((trackArtist || '') + '|' + (trackTitle || '')).toLowerCase().trim();
+    if (!key || key === '|') return null;
+    if (coverCache.has(key)) return coverCache.get(key);
+
+    // 1️⃣ Last.fm track.getInfo — reuse existing API key
+    try {
+      const qs = 'method=track.getInfo&api_key=' + LFM_API_KEY +
+        '&track=' + encodeURIComponent(trackTitle || '') +
+        (trackArtist ? '&artist=' + encodeURIComponent(trackArtist) : '') +
+        '&autocorrect=1&format=json';
+      const r = await fetch('https://ws.audioscrobbler.com/2.0/?' + qs);
+      if (r.ok) {
+        const d = await r.json();
+        const imgs = d && d.track && d.track.album && d.track.album.image;
+        if (imgs) {
+          // Prefer extralarge → large → medium; skip the placeholder image
+          const pick = ['extralarge', 'large', 'medium'];
+          for (const size of pick) {
+            const found = imgs.find(function(i) { return i.size === size; });
+            const url = found && found['#text'];
+            if (url && !url.includes(LFM_EMPTY_IMG)) {
+              coverCache.set(key, url);
+              return url;
+            }
+          }
+        }
+      }
+    } catch(e) {}
+
+    // 2️⃣ iTunes Search API — free, no auth needed
+    try {
+      const q = encodeURIComponent((trackArtist ? trackArtist + ' ' : '') + (trackTitle || ''));
+      const r = await fetch('https://itunes.apple.com/search?term=' + q + '&media=music&limit=1');
+      if (r.ok) {
+        const d = await r.json();
+        const art = d && d.results && d.results[0] && d.results[0].artworkUrl100;
+        if (art) {
+          // Upscale from 100×100 thumbnail to 600×600
+          const url = art.replace('100x100bb', '600x600bb');
+          coverCache.set(key, url);
+          return url;
+        }
+      }
+    } catch(e) {}
+
+    coverCache.set(key, null); // cache miss — don't retry same song this session
+    return null;
+  }
+
+  // Parse "Artist - Title" string (r/a/dio format) into { track, artist }
+  function parseRadSong(song) {
+    if (!song) return { track: '', artist: '' };
+    const sep = song.indexOf(' - ');
+    if (sep > 1 && sep < song.length - 3) {
+      const artist = song.slice(0, sep).trim();
+      const track  = song.slice(sep + 3).trim();
+      if (artist.length >= 2 && track.length >= 2) return { track, artist };
+    }
+    return { track: song, artist: '' };
+  }
+
   function updateMediaSession(id) {
     if (!('mediaSession' in navigator)) return;
 
     const np = nowPlaying[id];
-    let title, artist, album;
+    let title, artist, album, trackForCover, artistForCover;
 
     if (id === 'rad') {
       title  = np.song || 'r/a/dio';
       artist = np.dj   ? T.dj_label + np.dj : 'r/a/dio';
       album  = 'r/a/dio';
+      const parsed = parseRadSong(np.song);
+      trackForCover  = parsed.track;
+      artistForCover = parsed.artist;
     } else {
       title  = np.song   || 'listen.moe';
       artist = np.artist || 'listen.moe';
       album  = 'listen.moe';
+      trackForCover  = np.song   || '';
+      artistForCover = np.artist || '';
     }
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist,
-      album,
-      artwork: [
-        { src: PHOTO_ICON, sizes: '512x512', type: 'image/png' },
-        { src: PHOTO_ICON, sizes: '192x192', type: 'image/png' }
-      ]
+    // Set immediately with fallback icon, then upgrade artwork if cover found
+    function setMeta(artSrc) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title, artist, album,
+        artwork: [
+          { src: artSrc, sizes: '512x512', type: 'image/png' },
+          { src: artSrc, sizes: '192x192', type: 'image/png' }
+        ]
+      });
+    }
+
+    setMeta(PHOTO_ICON); // immediate — no waiting
+
+    // Async upgrade: fetch cover and update artwork if still same song
+    const songAtCall = np.song;
+    fetchCoverArt(trackForCover, artistForCover).then(function(url) {
+      if (!url) return;
+      // Only update if same song still playing (guard against song change during fetch)
+      if (nowPlaying[id].song === songAtCall && navigator.mediaSession.metadata) {
+        setMeta(url);
+      }
     });
 
     navigator.mediaSession.setActionHandler('play',  () => { if ($('audio-'+id).paused) togglePlay(id); });
