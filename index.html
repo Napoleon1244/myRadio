@@ -710,6 +710,8 @@
     .lfm-label { font-family:var(--font-serif); font-size:0.82rem; font-weight:400; color:var(--ink); letter-spacing:-0.01em; }
     .lfm-connected-dot { width:6px; height:6px; border-radius:50%; background:var(--green); margin-left:auto; flex-shrink:0; animation:pulse 2s ease infinite; }
     .lfm-desc { font-size:0.58rem; color:var(--dim); line-height:1.6; letter-spacing:0.01em; }
+    .lfm-honesty { font-size:0.58rem; color:var(--dim); line-height:1.65; letter-spacing:0.01em; background:var(--mist); border:1px solid var(--smoke); border-radius:9px; padding:9px 10px; transition:background var(--t),border-color var(--t); }
+    .lfm-honesty strong { color:var(--ink); font-weight:500; display:block; margin-bottom:3px; font-size:0.62rem; transition:color var(--t); }
     .lfm-user { display:flex; align-items:center; justify-content:space-between; background:var(--mist); border:1px solid var(--smoke); border-radius:9px; padding:7px 10px; transition:background var(--t), border-color var(--t); }
     .lfm-username { font-size:0.68rem; font-weight:500; color:var(--ink); }
     .lfm-count { font-size:0.58rem; color:var(--violet); white-space:nowrap; }
@@ -1115,6 +1117,7 @@
   // ── Constants ──
   const ASCII_LIGHT = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/ascii-art%20(1).png';
   const ASCII_DARK  = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/image%20(1).png';
+  const PHOTO_ICON  = 'https://raw.githubusercontent.com/Napoleon1244/myRadio/main/20260303-204321.png';
 
   // BUG FIX #1: isDark must be resolved BEFORE the preload IIFE uses it.
   // Previously, let isDark was declared on line ~1327 (after this IIFE), causing
@@ -1131,10 +1134,6 @@
     img.src = isDark ? ASCII_DARK : ASCII_LIGHT;
   })();
   let _otherThemePreloaded = false;
-  const STATION_ICON = {
-    rad:  'https://i.ibb.co/HpNxkfC5/2453080.png',
-    lmoe: 'https://i.ibb.co/FMHCPcX/icon-ogf-CVMXWZk-Vq-VSqa6dor-G0b2k8-Hh-7u5-Hu-Nx93-RNsz0.png'
-  };
   const RAD_STREAMS  = [
     'https://relay1.r-a-d.io/main.mp3',
     'https://relay0.r-a-d.io/main.mp3',
@@ -1228,6 +1227,8 @@
       lfm_scrobble_ok:   '✓ Tersubmit ke Last.fm',
       lfm_auth_fail:     'Gagal terhubung ke Last.fm',
       lfm_connected_info: 'Ketuk ⊕ di samping lagu di riwayat putar untuk submit ke Last.fm.',
+      lfm_honesty_title: '🎵 Soal Kejujuran',
+      lfm_honesty_info:  'Submit hanya lagu yang benar-benar kamu dengarkan. Last.fm dirancang untuk merekam kebiasaan mendengarmu yang sesungguhnya — bukan sekadar angka. Lagu yang sama boleh di-submit lagi kalau memang muter ulang. Tapi jangan spam submit lagu yang sama berkali-kali dalam satu sesi ya — itu namanya scrobble palsu dan melanggar semangat komunitas Last.fm.',
       lfm_submit_title:  'Submit ke Last.fm',
       lfm_submitted:     '✓',
     },
@@ -1295,6 +1296,8 @@
       lfm_scrobble_ok:   '✓ Submitted to Last.fm',
       lfm_auth_fail:     'Failed to connect to Last.fm',
       lfm_connected_info: 'Tap ⊕ next to any song in your history to submit it to Last.fm.',
+      lfm_honesty_title: '🎵 A Note on Honesty',
+      lfm_honesty_info:  'Only submit songs you actually listened to. Last.fm is built to reflect your genuine listening habits — not just a number. The same song can be submitted again if it really played again. But please don\'t spam-submit the same track multiple times in one session — that\'s fake scrobbling and goes against the spirit of the Last.fm community.',
       lfm_submit_title:  'Submit to Last.fm',
       lfm_submitted:     '✓',
     }
@@ -1765,116 +1768,25 @@
       try { navigator.mediaSession.setActionHandler(a, null); } catch(e) {}
     });
   }
-  // ── Cover Art (best-effort, in-memory cache) ──
-  // Strategy: 1) Last.fm track.getInfo (key already exists)  2) iTunes Search API (no auth)
-  // Both are free, no extra keys needed. Cache in-memory — resets on reload (fine).
-  const coverCache = new Map(); // "artist|title" → url string | null
-  const LFM_EMPTY_IMG = '2a96cbd8b46e442fc41c2b86b821562f'; // Last.fm placeholder hash
-
-  async function fetchCoverArt(trackTitle, trackArtist) {
-    const key = ((trackArtist || '') + '|' + (trackTitle || '')).toLowerCase().trim();
-    if (!key || key === '|') return null;
-    if (coverCache.has(key)) return coverCache.get(key);
-
-    // 1️⃣ Last.fm track.getInfo — reuse existing API key
-    try {
-      const qs = 'method=track.getInfo&api_key=' + LFM_API_KEY +
-        '&track=' + encodeURIComponent(trackTitle || '') +
-        (trackArtist ? '&artist=' + encodeURIComponent(trackArtist) : '') +
-        '&autocorrect=1&format=json';
-      const r = await fetch('https://ws.audioscrobbler.com/2.0/?' + qs);
-      if (r.ok) {
-        const d = await r.json();
-        const imgs = d && d.track && d.track.album && d.track.album.image;
-        if (imgs) {
-          // Prefer extralarge → large → medium; skip the placeholder image
-          const pick = ['extralarge', 'large', 'medium'];
-          for (const size of pick) {
-            const found = imgs.find(function(i) { return i.size === size; });
-            const url = found && found['#text'];
-            if (url && !url.includes(LFM_EMPTY_IMG)) {
-              coverCache.set(key, url);
-              return url;
-            }
-          }
-        }
-      }
-    } catch(e) {}
-
-    // 2️⃣ iTunes Search API — free, no auth needed
-    try {
-      const q = encodeURIComponent((trackArtist ? trackArtist + ' ' : '') + (trackTitle || ''));
-      const r = await fetch('https://itunes.apple.com/search?term=' + q + '&media=music&limit=1');
-      if (r.ok) {
-        const d = await r.json();
-        const art = d && d.results && d.results[0] && d.results[0].artworkUrl100;
-        if (art) {
-          // Upscale from 100×100 thumbnail to 600×600
-          const url = art.replace('100x100bb', '600x600bb');
-          coverCache.set(key, url);
-          return url;
-        }
-      }
-    } catch(e) {}
-
-    coverCache.set(key, null); // cache miss — don't retry same song this session
-    return null;
-  }
-
-  // Parse "Artist - Title" string (r/a/dio format) into { track, artist }
-  function parseRadSong(song) {
-    if (!song) return { track: '', artist: '' };
-    const sep = song.indexOf(' - ');
-    if (sep > 1 && sep < song.length - 3) {
-      const artist = song.slice(0, sep).trim();
-      const track  = song.slice(sep + 3).trim();
-      if (artist.length >= 2 && track.length >= 2) return { track, artist };
-    }
-    return { track: song, artist: '' };
-  }
-
   function updateMediaSession(id) {
     if (!('mediaSession' in navigator)) return;
 
     const np = nowPlaying[id];
-    let title, artist, album, trackForCover, artistForCover;
+    let title, artist, album;
 
     if (id === 'rad') {
       title  = np.song || 'r/a/dio';
       artist = np.dj   ? T.dj_label + np.dj : 'r/a/dio';
       album  = 'r/a/dio';
-      const parsed = parseRadSong(np.song);
-      trackForCover  = parsed.track;
-      artistForCover = parsed.artist;
     } else {
       title  = np.song   || 'listen.moe';
       artist = np.artist || 'listen.moe';
       album  = 'listen.moe';
-      trackForCover  = np.song   || '';
-      artistForCover = np.artist || '';
     }
 
-    // Set immediately with fallback icon, then upgrade artwork if cover found
-    function setMeta(artSrc) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title, artist, album,
-        artwork: [
-          { src: artSrc, sizes: '512x512', type: 'image/png' },
-          { src: artSrc, sizes: '192x192', type: 'image/png' }
-        ]
-      });
-    }
-
-    setMeta(STATION_ICON[id]); // immediate — station logo while cover fetches
-
-    // Async upgrade: fetch cover and update artwork if still same song
-    const songAtCall = np.song;
-    fetchCoverArt(trackForCover, artistForCover).then(function(url) {
-      if (!url) return;
-      // Only update if same song still playing (guard against song change during fetch)
-      if (nowPlaying[id].song === songAtCall && navigator.mediaSession.metadata) {
-        setMeta(url);
-      }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title, artist, album,
+      artwork: [{ src: PHOTO_ICON, sizes: '512x512', type: 'image/png' }]
     });
 
     navigator.mediaSession.setActionHandler('play',  () => { if ($('audio-'+id).paused) togglePlay(id); });
@@ -1888,7 +1800,7 @@
     navigator.mediaSession.setActionHandler('previoustrack', () => switchToStation(prev));
   }
 
-  // ── Audio event listeners ──
+    // ── Audio event listeners ──
   const stallTimers  = {};
   const reconnTimers = {}; // hard "give up" timers per station
   const watchdogs    = {};
@@ -2452,7 +2364,6 @@
     btn.textContent = '…';
     btn.style.opacity = '1';
     const ts = Math.floor((h.ts || Date.now()) / 1000);
-    console.log('[myRadio] Submitting to Last.fm:', { track, artist, ts });
     const ok = await lfmScrobble(track, artist, ts);
     _lfmSubmitting = false;
     if (ok) {
@@ -2738,10 +2649,8 @@
         sk:        lfm.sessionKey
       }, true);
 
-      console.log('[myRadio] lfmScrobble response:', JSON.stringify(data));
 
       if (data && data.error) {
-        console.warn('[myRadio] Last.fm error:', data.error, data.message);
         if (data.error === 9) { lfmDisconnect(); showToast(T.lfm_auth_fail); }
         else { showToast(T.lfm_scrobble_fail + (data.message ? ': ' + data.message : '')); }
         return false;
@@ -2763,7 +2672,6 @@
       var ignoreMsg  = scrobble && scrobble.ignoredMessage;
       var ignoreText = ignoreMsg && ignoreMsg['#text'] ? ignoreMsg['#text'] : '';
       var ignoreCode = ignoreMsg && ignoreMsg.code ? ignoreMsg.code : '';
-      console.warn('[myRadio] Scrobble ignored. code:', ignoreCode, 'reason:', ignoreText);
       showToast(ignoreText || T.lfm_scrobble_fail);
       return false;
 
@@ -2867,7 +2775,14 @@
         '</button>';
     }
 
-    el.innerHTML = sectionLabel + headerHtml + bodyHtml;
+    var honestyHtml =
+      '<div class="lfm-divider" style="margin:6px 0;"></div>' +
+      '<div class="lfm-honesty">' +
+        '<strong>' + T.lfm_honesty_title + '</strong>' +
+        T.lfm_honesty_info +
+      '</div>';
+
+    el.innerHTML = sectionLabel + headerHtml + bodyHtml + honestyHtml;
   }
 
   // ── Show/hide ⊕ buttons on now-playing cards
@@ -2931,7 +2846,6 @@
     _lfmSubmitting = true;
     btn.textContent = '…';
     btn.style.opacity = '1';
-    console.log('[myRadio] NP submit to Last.fm:', { id, track, artist });
     var ts = Math.floor(Date.now() / 1000);
     var ok = await lfmScrobble(track, artist, ts);
     _lfmSubmitting = false;
